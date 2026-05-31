@@ -1,6 +1,6 @@
-# DocMind — AI Knowledge Assistant (RAG + Agent)
+# DocPilot — AI Knowledge Assistant (RAG + Agent)
 
-> **Upload your documents, then chat with them.** DocMind lets a business feed in its files
+> **Upload your documents, then chat with them.** DocPilot lets a business feed in its files
 > (manuals, policies, product docs, contracts) and gives their team an AI assistant that answers
 > questions using **only those documents** — with citations — and can take real actions via
 > AI tool-calling.
@@ -49,7 +49,7 @@ move from frontend (Angular) into an AI fullstack role.
 ## Repository layout (planned)
 
 ```
-docmind/
+docpilot/
 ├─ docs/                  # ← project documentation (this planning)
 ├─ apps/
 │  ├─ web/                # React + Vite frontend

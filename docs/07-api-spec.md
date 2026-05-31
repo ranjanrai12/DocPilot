@@ -1,6 +1,6 @@
 # 07 — API Specification
 
-REST API for DocMind. All endpoints are prefixed `/api`. All authenticated requests send
+REST API for DocPilot. All endpoints are prefixed `/api`. All authenticated requests send
 `Authorization: Bearer <accessToken>`. All bodies are JSON unless noted (uploads are multipart).
 Every tenant-owned resource is implicitly scoped to the caller's `workspaceId` (from the JWT).
 

@@ -7,7 +7,7 @@ data retention, testing, CI/CD, and observability.
 
 - **pnpm workspaces** manage `apps/web`, `apps/api`, and `packages/shared`.
 - `packages/shared` holds TypeScript types shared front ↔ back (e.g. API request/response types,
-  enums) — imported as `@docmind/shared`. Never duplicate these types.
+  enums) — imported as `@docpilot/shared`. Never duplicate these types.
 - Optional **Turborepo** for task caching (`build`, `lint`, `test`) once the repo grows.
 - Root scripts: `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm test`, `pnpm typecheck`.
 

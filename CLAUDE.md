@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this project is
 
-**DocMind** — an AI Knowledge Assistant SaaS (RAG + agent). Businesses upload documents; their team
+**DocPilot** — an AI Knowledge Assistant SaaS (RAG + agent). Businesses upload documents; their team
 chats with an AI that answers **only from those documents**, with citations, and can take actions via
 AI tool-calling. It is a **production-grade portfolio project** to demonstrate AI-fullstack skills.
 
@@ -39,7 +39,7 @@ decisions (see `docs/03-tech-stack.md`).
 ## Planned repository layout
 
 ```
-docmind/
+docpilot/
 ├─ docs/                  # project documentation (source of truth)
 ├─ apps/
 │  ├─ web/                # React + Vite frontend

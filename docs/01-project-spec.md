@@ -2,7 +2,7 @@
 
 ## 1. Vision
 
-**DocMind** is a SaaS web application where a business uploads its documents and gets an AI
+**DocPilot** is a SaaS web application where a business uploads its documents and gets an AI
 assistant that answers questions **grounded only in those documents**, with citations, and can
 perform actions on the user's behalf via AI tool-calling.
 
@@ -17,7 +17,7 @@ but that knowledge is hard to access:
 - Support staff dig through PDFs to answer customers.
 - Information *exists* but isn't *findable* — nobody reads 500 pages to find one answer.
 
-DocMind makes that knowledge instantly accessible through conversation, with citations so answers
+DocPilot makes that knowledge instantly accessible through conversation, with citations so answers
 can be trusted, and without hallucinating facts that aren't in the source material.
 
 ## 3. Target users (personas)
