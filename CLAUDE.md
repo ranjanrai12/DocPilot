@@ -9,6 +9,7 @@ chats with an AI that answers **only from those documents**, with citations, and
 AI tool-calling. It is a **production-grade portfolio project** to demonstrate AI-fullstack skills.
 
 Read the docs before making changes — they are the source of truth:
+
 - `docs/01-project-spec.md` — product spec, functional requirements, scope
 - `docs/02-architecture.md` — system design, RAG pipeline, request flows
 - `docs/03-tech-stack.md` — stack choices + rationale
@@ -20,8 +21,9 @@ Read the docs before making changes — they are the source of truth:
 
 ## Current status
 
-🟡 **Planning complete; code NOT scaffolded yet.** The repo currently contains only documentation.
-The next step is Phase 0/1 in the roadmap (scaffold monorepo, then auth + database).
+🟢 **Phase 0 complete.** pnpm monorepo scaffolded and verified: `apps/api` (Express + TS, zod-validated
+env, `/api/health`), `apps/web` (React + Vite + TS + TanStack Query, calls the API), `packages/shared`
+(shared types). Both apps start and typecheck/build clean. **Next: Phase 1** (auth + database).
 
 ## Locked tech stack
 
@@ -51,6 +53,7 @@ docpilot/
 ```
 
 Backend (`apps/api/src/`) — **feature/module-based** structure (group by feature, not by layer):
+
 ```
 modules/           # one folder per feature, each owns its routes/controller/service/schema
   auth/            #   auth.routes.ts, auth.controller.ts, auth.service.ts, auth.schema.ts
@@ -65,6 +68,7 @@ lib/               # infra clients: prisma, redis, llm, storage
 config/            # env loading & validation
 types/             # local types
 ```
+
 Per module: `routes → controller → service`. No business logic in routes/controllers.
 
 ## Conventions
@@ -91,16 +95,26 @@ Per module: `routes → controller → service`. No business logic in routes/con
 
 ## Build order
 
-Follow `docs/05-roadmap.md` phase by phase. Each phase must *work* (meet its "Done when" criterion)
+Follow `docs/05-roadmap.md` phase by phase. Each phase must _work_ (meet its "Done when" criterion)
 before starting the next. The author is new to React, Express, and databases — when implementing,
-briefly explain concepts and the *why* behind decisions (Angular analogies help).
+briefly explain concepts and the _why_ behind decisions (Angular analogies help).
 
 ## Commands
 
-> None yet — the project is not scaffolded. Monorepo uses **pnpm workspaces**. Add real commands here
-> as each app is created. Expected once scaffolded:
-> - `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm typecheck`
-> - `pnpm --filter api prisma migrate dev`, `pnpm --filter api prisma generate`
+Monorepo uses **pnpm workspaces** (`apps/*`, `packages/*`).
+
+- `pnpm install` — install all workspace deps
+- `pnpm dev` — run api (:3000) + web (:5173) in parallel
+- `pnpm --filter api dev` / `pnpm --filter web dev` — run one app
+- `pnpm typecheck` — typecheck all packages
+- `pnpm build` — build all packages
+- `pnpm --filter web build` — build the web app
+- `pnpm format` / `pnpm format:check` — format (Prettier) / check formatting
+- Dev runner: **tsx** (api). API prod build: **tsup**.
+- Coming in later phases: `pnpm --filter api prisma migrate dev`, `pnpm --filter api prisma generate`
+
+> **Deferred to Phase 6 (deliberate):** ESLint is not configured yet — `pnpm lint` is a no-op stub.
+> Local Redis (`docker-compose.yml`) is defined but only needed from Phase 2 (BullMQ ingestion).
 
 ## Git
 

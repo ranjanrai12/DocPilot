@@ -1,0 +1,23 @@
+# Local infrastructure for development.
+#
+# Phase 0: defines local Redis (used by BullMQ for background document
+# ingestion, starting in Phase 2). Not required to run the app yet —
+# `pnpm dev` works without it. Start it when you reach Phase 2:
+#
+#   docker compose up -d
+#
+# REDIS_URL for apps/api/.env then becomes:  redis://localhost:6379
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: docpilot-redis
+    ports:
+      - '6379:6379'
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5

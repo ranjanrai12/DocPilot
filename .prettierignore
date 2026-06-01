@@ -1,0 +1,10 @@
+# Build output & deps
+node_modules/
+dist/
+build/
+coverage/
+pnpm-lock.yaml
+
+# Hand-authored prose (source of truth) — don't reformat.
+docs/
+*.md

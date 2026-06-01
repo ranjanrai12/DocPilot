@@ -1,0 +1,8 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Allow these dependencies to run their install/build scripts.
+# esbuild (used by Vite + tsup) needs this to install its platform binary.
+onlyBuiltDependencies:
+  - esbuild
