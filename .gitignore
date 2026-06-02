@@ -8,3 +8,6 @@ build/
 .DS_Store
 coverage/
 .vite/
+
+# Claude Code: commit shared settings, ignore personal overrides
+.claude/settings.local.json

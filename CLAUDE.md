@@ -113,6 +113,10 @@ Monorepo uses **pnpm workspaces** (`apps/*`, `packages/*`).
 - Dev runner: **tsx** (api). API prod build: **tsup**.
 - Coming in later phases: `pnpm --filter api prisma migrate dev`, `pnpm --filter api prisma generate`
 
+**Custom slash commands** (in `.claude/commands/`): `/new-module <name>` scaffolds a feature module
+(routes/controller/service/schema per convention); `/phase-check` runs typecheck + build to verify a
+phase is green. A committed `.claude/settings.json` pre-approves safe `pnpm`/read-only `git` commands.
+
 > **Deferred to Phase 6 (deliberate):** ESLint is not configured yet — `pnpm lint` is a no-op stub.
 > Local Redis (`docker-compose.yml`) is defined but only needed from Phase 2 (BullMQ ingestion).
 
