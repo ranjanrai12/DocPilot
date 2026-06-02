@@ -10,7 +10,9 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:studio": "pnpm --filter api db:studio"
   },
   "devDependencies": {
     "prettier": "^3.3.3",

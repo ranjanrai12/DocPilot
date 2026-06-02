@@ -1,11 +1,3 @@
-/**
- * Shared TypeScript types used by BOTH the API and the web app.
- * Import via:  import type { HealthResponse } from '@docpilot/shared';
- *
- * Keeping these in one place means the frontend and backend can never
- * drift out of sync about the shape of the data they exchange.
- */
-
 /** Response shape of GET /api/health */
 export interface HealthResponse {
   status: 'ok';
@@ -20,4 +12,23 @@ export interface ApiError {
     message: string;
     details?: unknown;
   };
+}
+
+export type UserRole = 'ADMIN' | 'MEMBER';
+
+export interface UserPublic {
+  id: string;
+  workspaceId: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  user: UserPublic;
+  accessToken: string;
+}
+
+export interface RefreshResponse {
+  accessToken: string;
 }

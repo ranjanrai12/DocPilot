@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum DocStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum MsgRole {
+  USER
+  ASSISTANT
+  TOOL
+}
+
+enum UsageKind {
+  EMBEDDING
+  CHAT
+}
+
+model Workspace {
+  id            String         @id @default(uuid())
+  name          String
+  createdAt     DateTime       @default(now())
+  users         User[]
+  documents     Document[]
+  conversations Conversation[]
+  usageEvents   UsageEvent[]
+}
+
+model User {
+  id            String         @id @default(uuid())
+  workspaceId   String
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id])
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(MEMBER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  conversations Conversation[]
+
+  @@index([workspaceId])
+}
+
+model Document {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  filename    String
+  storageKey  String
+  mimeType    String
+  status      DocStatus @default(PROCESSING)
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  chunks      Chunk[]
+
+  @@index([workspaceId])
+}
+
+// embedding vector(1536) column is added via raw SQL in the migration (Phase 2)
+model Chunk {
+  id          String   @id @default(uuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  workspaceId String
+  content     String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
+  @@index([documentId])
+}
+
+model Conversation {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  title       String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MsgRole
+  content        String
+  citations      Json?
+  toolCall       Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+model UsageEvent {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  kind        UsageKind
+  tokensIn    Int
+  tokensOut   Int
+  costUsd     Decimal   @db.Decimal(10, 6)
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+}

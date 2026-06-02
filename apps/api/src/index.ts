@@ -1,25 +1,34 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import type { HealthResponse } from '@docpilot/shared';
-import { env } from './config/env';
+import { env } from './config/env.js';
+import { prisma } from './lib/prisma.js';
+import authRoutes from './modules/auth/auth.routes.js';
+import { errorHandler } from './middleware/errors.js';
 
 const app = express();
 
-// Allow the web app (different origin in dev) to call us, with cookies (for the
-// refresh token later). Locked to the known web origin — not a wildcard.
 app.use(cors({ origin: env.WEB_ORIGIN, credentials: true }));
-
-// Parse JSON request bodies.
 app.use(express.json());
+app.use(cookieParser());
 
-/**
- * Health check — used by the web app (and later by the deploy platform) to
- * confirm the API is up. In Phase 1/2 we'll wire real db/redis checks here.
- */
-app.get('/api/health', (_req, res) => {
-  const body: HealthResponse = { status: 'ok', db: 'unknown', redis: 'unknown' };
+app.use('/api/auth', authRoutes);
+
+app.get('/api/health', async (_req, res) => {
+  let db: HealthResponse['db'] = 'unknown';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    db = 'up';
+  } catch {
+    db = 'down';
+  }
+  const body: HealthResponse = { status: 'ok', db, redis: 'unknown' };
   res.json(body);
 });
+
+// Error handler must be last
+app.use(errorHandler);
 
 app.listen(env.PORT, () => {
   console.log(`🚀 API listening on http://localhost:${env.PORT}  (env: ${env.NODE_ENV})`);
