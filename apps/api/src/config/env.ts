@@ -47,6 +47,22 @@ const EnvSchema = z.object({
 
   // Uploads
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(25),
+}).superRefine((val, ctx) => {
+  // Conditionally-required vars — fail at startup, not on first use.
+  if (val.STORAGE_DRIVER === 's3') {
+    for (const key of ['STORAGE_BUCKET', 'STORAGE_ACCESS_KEY', 'STORAGE_SECRET_KEY'] as const) {
+      if (!val[key]) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} is required when STORAGE_DRIVER=s3` });
+      }
+    }
+  }
+  if (val.EMBEDDING_PROVIDER === 'openai' && !val.OPENAI_API_KEY) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['OPENAI_API_KEY'], message: 'OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai' });
+  }
+  // In production the runtime MUST use the least-privilege role or RLS is a no-op.
+  if (val.NODE_ENV === 'production' && !val.APP_DATABASE_URL) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['APP_DATABASE_URL'], message: 'APP_DATABASE_URL (least-privilege docpilot_app role) is required in production so RLS is enforced' });
+  }
 });
 
 const parsed = EnvSchema.safeParse(process.env);

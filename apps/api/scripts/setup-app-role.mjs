@@ -52,6 +52,9 @@ try {
   // pgvector lives in the `extensions` schema on Supabase. The role needs both
   // USAGE on that schema and `extensions` on its search_path so `::vector` casts
   // and the `<=>` operator resolve unqualified (and the HNSW index is usable).
+  // Create the schema if missing so a fresh DB (local/CI) can run the pgvector
+  // migration, which assumes `extensions` exists.
+  await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS extensions;`);
   await prisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA extensions TO docpilot_app;`);
   await prisma.$executeRawUnsafe(
     `ALTER ROLE docpilot_app SET search_path = "$user", public, extensions;`,

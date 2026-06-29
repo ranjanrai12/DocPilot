@@ -3,7 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import type { HealthResponse } from '@docpilot/shared';
 import { env } from './config/env.js';
-import { prisma } from './lib/prisma.js';
+import { prisma, assertRlsEnforced } from './lib/prisma.js';
 import { pingRedis, isRedisConfigured } from './lib/redis.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import documentRoutes from './modules/documents/documents.routes.js';
@@ -38,6 +38,11 @@ app.get('/api/health', async (_req, res) => {
 // Error handler must be last
 app.use(errorHandler);
 
-app.listen(env.PORT, () => {
-  console.log(`🚀 API listening on http://localhost:${env.PORT}  (env: ${env.NODE_ENV})`);
-});
+async function start(): Promise<void> {
+  await assertRlsEnforced();
+  app.listen(env.PORT, () => {
+    console.log(`🚀 API listening on http://localhost:${env.PORT}  (env: ${env.NODE_ENV})`);
+  });
+}
+
+void start();

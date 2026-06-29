@@ -77,9 +77,10 @@ model Chunk {
   content     String
   metadata    Json?
   createdAt   DateTime @default(now())
-  // embedding  Unsupported("vector(1536)")
-  // ^ pgvector type can't be modeled by Prisma; added via raw SQL in the
-  //   `add_pgvector_embeddings` migration. Read/written with $queryRaw/$executeRaw.
+  // pgvector column: declared as Unsupported so `prisma migrate dev` tracks it
+  // (and won't generate a DROP), but it's written/read ONLY via raw SQL — Prisma
+  // can't bind the vector type. Added by the `add_pgvector_embeddings` migration.
+  embedding   Unsupported("vector(1536)")?
 
   @@index([workspaceId])
   @@index([documentId])

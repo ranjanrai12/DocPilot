@@ -37,6 +37,7 @@ Every error response uses this shape and an appropriate HTTP status:
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | Disallowed file type |
 | 429 | `RATE_LIMITED` | Rate/usage limit hit (includes `Retry-After`) |
 | 500 | `INTERNAL` | Unexpected error (details hidden; logged + Sentry) |
+| 503 | `SERVICE_UNAVAILABLE` | Background ingestion queue unavailable (Redis not configured/reachable) |
 
 > Cross-tenant access returns **404** (not 403) so existence isn't leaked across workspaces.
 

@@ -73,10 +73,12 @@ class OpenAIEmbedder implements Embedder {
       throw new Error(`OpenAI embeddings failed: ${res.status} ${await res.text()}`);
     }
     const json = (await res.json()) as {
-      data: { embedding: number[] }[];
+      data: { embedding: number[]; index: number }[];
       usage: { total_tokens: number };
     };
-    return { vectors: json.data.map((d) => d.embedding), tokens: json.usage.total_tokens };
+    // OpenAI may return embeddings out of input order — sort by `index` first.
+    const ordered = [...json.data].sort((a, b) => a.index - b.index);
+    return { vectors: ordered.map((d) => d.embedding), tokens: json.usage.total_tokens };
   }
 }
 

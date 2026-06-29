@@ -1,7 +1,9 @@
 import mammoth from 'mammoth';
 import { PDFParse } from 'pdf-parse';
 
-// Server-side allow-list of accepted upload types (never trust the client mime).
+// Server-side allow-list of accepted upload types. Note: file.mimetype (multer)
+// is the client-declared Content-Type; the real backstop is that the worker
+// parses the actual bytes below and fails ingestion if they don't match the type.
 export const SUPPORTED_MIME = {
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
