@@ -4,7 +4,6 @@ import type {
   ConversationDto,
   MessageDto,
   ConversationListResponse,
-  AskResponse,
 } from '@docpilot/shared';
 import { withWorkspace } from '../../lib/prisma.js';
 import { embedder, chatClient, type ChatTurn } from '../../lib/llm.js';
@@ -165,13 +164,18 @@ function buildCitations(chunks: RetrievedChunk[]): Citation[] {
   return [...byDoc.values()];
 }
 
-export async function ask(
+// Verify a conversation belongs to the workspace (404 otherwise). Called by the
+// controller BEFORE opening the SSE stream so a miss stays a normal JSON error.
+export async function assertConversation(workspaceId: string, id: string): Promise<void> {
+  await findConversationOrThrow(workspaceId, id);
+}
+
+export async function askStream(
   workspaceId: string,
   conversationId: string,
   question: string,
-): Promise<AskResponse> {
-  await findConversationOrThrow(workspaceId, conversationId);
-
+  opts: { onToken: (token: string) => void; signal?: AbortSignal },
+): Promise<{ message: MessageDto; citations: Citation[]; usage: { tokensIn: number; tokensOut: number } }> {
   // 1. Embed the question (network — outside any transaction).
   const { vectors } = await embedder.embed([question]);
   const queryVector = vectors[0];
@@ -188,7 +192,7 @@ export async function ask(
     return { chunks, history: recent.reverse() };
   });
 
-  // 3. Build the grounded prompt (system rules + tagged context).
+  // 3. Build the grounded prompt (system rules + tagged, escaped context).
   const context = chunks
     .map((c) => {
       const page = pageOf(c.metadata);
@@ -205,13 +209,17 @@ export async function ask(
     { role: 'user', content: question },
   ];
 
-  // 4. LLM call.
-  const result = await chatClient.complete({ system, messages });
+  // 4. Persist the user turn up front so it survives an aborted stream.
+  await withWorkspace(workspaceId, (tx) =>
+    tx.message.create({ data: { conversationId, role: 'USER', content: question } }),
+  );
+
+  // 5. Stream the answer — onToken pushes each delta to the SSE client.
+  const result = await chatClient.stream({ system, messages, signal: opts.signal }, opts.onToken);
   const citations = buildCitations(chunks);
 
-  // 5. Persist the user + assistant turns and record usage (one transaction).
+  // 6. Persist the assistant turn + usage.
   const assistant = await withWorkspace(workspaceId, async (tx) => {
-    await tx.message.create({ data: { conversationId, role: 'USER', content: question } });
     const a = await tx.message.create({
       data: {
         conversationId,
@@ -226,5 +234,9 @@ export async function ask(
     return a;
   });
 
-  return { message: toMessageDto(assistant), citations };
+  return {
+    message: toMessageDto(assistant),
+    citations,
+    usage: { tokensIn: result.tokensIn, tokensOut: result.tokensOut },
+  };
 }
