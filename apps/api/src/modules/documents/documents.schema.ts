@@ -7,3 +7,6 @@ export const ListDocumentsQuery = z.object({
 });
 
 export type ListDocumentsQuery = z.infer<typeof ListDocumentsQuery>;
+
+// Path param for GET/DELETE /api/documents/:id
+export const DocumentIdParam = z.object({ id: z.string().uuid() });

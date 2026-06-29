@@ -79,4 +79,22 @@ describe('multi-tenant isolation (RLS backstop)', () => {
     const docs = await prisma.document.findMany({ where: { storageKey: { contains: tag } } });
     expect(docs).toHaveLength(0);
   });
+
+  it("scoped to A: WITH CHECK rejects inserting a Chunk tagged with B's workspaceId", async () => {
+    await expect(
+      withWorkspace(
+        wsA,
+        (tx) =>
+          tx.$executeRaw`INSERT INTO "Chunk" (id, "documentId", "workspaceId", content)
+            VALUES (${randomUUID()}, ${docB}, ${wsB}, 'cross-tenant leak attempt')`,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("scoped to A: updating B's document affects 0 rows (write isolation)", async () => {
+    const res = await withWorkspace(wsA, (tx) =>
+      tx.document.updateMany({ where: { id: docB }, data: { filename: 'hacked.pdf' } }),
+    );
+    expect(res.count).toBe(0);
+  });
 });

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { bypassRls } from '../../lib/prisma.js';
+import { bypassRls, withWorkspace } from '../../lib/prisma.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt.js';
 import type { SignupBody, LoginBody } from './auth.schema.js';
 
@@ -68,8 +68,11 @@ export async function refresh(refreshToken: string) {
   return { accessToken };
 }
 
-export async function getMe(userId: string) {
-  const user = await bypassRls((tx) => tx.user.findUnique({ where: { id: userId } }));
+export async function getMe(userId: string, workspaceId: string) {
+  // Post-auth (workspace is known): scope to the workspace via RLS, not bypass.
+  const user = await withWorkspace(workspaceId, (tx) =>
+    tx.user.findFirst({ where: { id: userId, workspaceId } }),
+  );
   if (!user) {
     const err = new Error('User not found.') as Error & { status: number; code: string };
     err.status = 404;

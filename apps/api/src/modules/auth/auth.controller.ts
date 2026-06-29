@@ -53,7 +53,7 @@ export async function logout(_req: Request, res: Response): Promise<void> {
 
 export async function me(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await authService.getMe(req.user!.sub);
+    const result = await authService.getMe(req.user!.sub, req.user!.workspaceId);
     res.status(200).json(result);
   } catch (err) {
     next(err);

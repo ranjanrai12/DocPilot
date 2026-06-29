@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/documents/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
+    onError: (e) => setError(e instanceof ApiRequestError ? e.message : 'Delete failed.'),
   });
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {

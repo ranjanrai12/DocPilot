@@ -29,6 +29,29 @@ client init auto-loads `.env` into `process.env` — so a malformed var in `.env
 `REDIS_URL`) fails env validation at boot even if unset in the shell. Optional URL env vars
 now treat blank as unset.
 
+### Post-build review pass (3 custom agents)
+
+After Phase 2, ran `tenant-isolation-auditor`, `prisma-guardian`, and `docpilot-reviewer`.
+Both security audits PASSed (no exploitable cross-tenant path). Fixes applied from the review:
+- **RLS no-op guard** — `assertRlsEnforced()` (lib/prisma) refuses to boot in production (warns in
+  dev) if the runtime role can bypass RLS; `APP_DATABASE_URL` is required in production.
+- **Upload orchestration moved controller → `service.uploadDocument()`** with compensation (delete
+  object / mark FAILED on partial failure) — also fixes the "stuck PROCESSING forever" case.
+- `getMe` now uses `withWorkspace` (not `bypassRls`); all writes scoped (`deleteMany`/`updateMany`
+  with `{ id, workspaceId }`); `:id` params zod-validated; conditional env enforced at startup;
+  user-facing `document.error` sanitized (raw provider text logged server-side only).
+- `embedding` modeled as `Unsupported("vector(1536)")?` so `prisma migrate dev` won't DROP it.
+- Isolation test expanded to cover writes (RLS `WITH CHECK` insert rejection + cross-tenant update).
+
+**Deferred to Phase 6 / CI (prisma-guardian, not blocking):**
+- The `add_pgvector_embeddings` migration assumes the `extensions` schema exists; it's already applied
+  to Supabase (can't edit — checksum), so fresh CI/local needs a pre-migration `CREATE SCHEMA IF NOT
+  EXISTS extensions` (or a pgvector image bootstrap). `setup-app-role.mjs` does this for the runtime DB.
+- `migrate dev` could emit a spurious `embedding` ALTER if the migration owner's `search_path` lacks
+  `extensions` (qualified vs unqualified `vector` type). On Supabase the `postgres` owner already has
+  `extensions` on its path. Mitigation: keep hand-authoring vector migrations + `migrate deploy`; if
+  `migrate dev` is ever used, review/discard any generated `embedding` type change.
+
 ## Phase 1 — RLS backstop + tenant-isolation test
 
 **Defense in depth for multi-tenancy.** The primary control is the explicit

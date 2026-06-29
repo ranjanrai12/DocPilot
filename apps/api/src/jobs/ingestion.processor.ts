@@ -55,8 +55,8 @@ export async function processIngestion(data: IngestionJobData): Promise<void> {
         `;
       }
 
-      await tx.document.update({
-        where: { id: documentId },
+      await tx.document.updateMany({
+        where: { id: documentId, workspaceId },
         data: { status: 'READY', error: null },
       });
 
@@ -66,11 +66,22 @@ export async function processIngestion(data: IngestionJobData): Promise<void> {
       });
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Ingestion failed.';
-    // Never leave a document stuck in PROCESSING.
+    const raw = err instanceof Error ? err.message : 'Ingestion failed.';
+    // Full detail stays server-side; only a sanitized message is shown to users.
+    console.error(`[ingestion] document ${documentId} failed:`, raw);
     await withWorkspace(workspaceId, (tx) =>
-      tx.document.update({ where: { id: documentId }, data: { status: 'FAILED', error: message } }),
+      tx.document.updateMany({
+        where: { id: documentId, workspaceId },
+        data: { status: 'FAILED', error: friendlyError(raw) },
+      }),
     ).catch(() => {});
     throw err; // surface to BullMQ for retry/visibility
   }
+}
+
+// Map internal/provider error text to a user-safe message (raw text stays in logs).
+function friendlyError(raw: string): string {
+  if (/no extractable text/i.test(raw)) return 'No readable text was found in this document.';
+  if (/unsupported (mime|file)/i.test(raw)) return 'This file type is not supported.';
+  return 'Ingestion failed. Please try again or contact support.';
 }
