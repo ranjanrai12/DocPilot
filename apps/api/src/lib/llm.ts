@@ -108,9 +108,21 @@ export interface ChatResult {
   tokensOut: number;
 }
 
-export interface ChatClient {
-  complete(input: { system: string; messages: ChatTurn[]; maxTokens?: number }): Promise<ChatResult>;
+export interface ChatInput {
+  system: string;
+  messages: ChatTurn[];
+  maxTokens?: number;
+  signal?: AbortSignal;
 }
+
+export interface ChatClient {
+  complete(input: ChatInput): Promise<ChatResult>;
+  // Streams token deltas via onToken; resolves with the full result. Pass an
+  // AbortSignal to cancel the upstream LLM call when the client disconnects.
+  stream(input: ChatInput, onToken: (token: string) => void): Promise<ChatResult>;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Anthropic Claude via the official SDK (claude-api skill: use the SDK, not raw HTTP).
 class AnthropicChat implements ChatClient {
@@ -118,7 +130,7 @@ class AnthropicChat implements ChatClient {
   constructor(apiKey: string) {
     this.client = new Anthropic({ apiKey });
   }
-  async complete({ system, messages, maxTokens }: { system: string; messages: ChatTurn[]; maxTokens?: number }): Promise<ChatResult> {
+  async complete({ system, messages, maxTokens }: ChatInput): Promise<ChatResult> {
     const res = await this.client.messages.create({
       model: env.CHAT_MODEL,
       max_tokens: maxTokens ?? 1024,
@@ -128,11 +140,27 @@ class AnthropicChat implements ChatClient {
     const text = res.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
     return { text, tokensIn: res.usage.input_tokens, tokensOut: res.usage.output_tokens };
   }
+
+  async stream({ system, messages, maxTokens, signal }: ChatInput, onToken: (t: string) => void): Promise<ChatResult> {
+    const s = this.client.messages.stream(
+      {
+        model: env.CHAT_MODEL,
+        max_tokens: maxTokens ?? 1024,
+        system,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      },
+      signal ? { signal } : undefined,
+    );
+    s.on('text', (delta) => onToken(delta));
+    const final = await s.finalMessage();
+    const text = final.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
+    return { text, tokensIn: final.usage.input_tokens, tokensOut: final.usage.output_tokens };
+  }
 }
 
 // Deterministic dev driver — no key/cost. Proves the RAG plumbing end to end.
 class FakeChat implements ChatClient {
-  async complete({ system, messages }: { system: string; messages: ChatTurn[] }): Promise<ChatResult> {
+  async complete({ system, messages }: ChatInput): Promise<ChatResult> {
     const question = messages[messages.length - 1]?.content ?? '';
     const hasContext = system.includes('<chunk ');
     const text = hasContext
@@ -140,6 +168,18 @@ class FakeChat implements ChatClient {
       : "I don't know based on the documents.";
     const tokensIn = Math.ceil((system.length + question.length) / 4);
     return { text, tokensIn, tokensOut: Math.ceil(text.length / 4) };
+  }
+
+  async stream(input: ChatInput, onToken: (t: string) => void): Promise<ChatResult> {
+    const result = await this.complete(input);
+    // Emit word-by-word so the UI streaming path is exercised in dev.
+    const tokens = result.text.match(/\S+\s*/g) ?? [result.text];
+    for (const t of tokens) {
+      if (input.signal?.aborted) throw new Error('aborted');
+      onToken(t);
+      await sleep(20);
+    }
+    return result;
   }
 }
 

@@ -94,3 +94,9 @@ export interface AskResponse {
   message: MessageDto;
   citations: Citation[];
 }
+
+/** SSE events streamed from POST /api/conversations/:id/messages (Phase 4). */
+export type ChatStreamEvent =
+  | { type: 'token'; value: string }
+  | { type: 'done'; messageId: string; citations: Citation[]; usage: { tokensIn: number; tokensOut: number } }
+  | { type: 'error'; message: string };

@@ -14,7 +14,7 @@ function extOf(filename: string): string {
   return parts.length > 1 ? parts.pop()!.toUpperCase().slice(0, 4) : 'FILE';
 }
 
-export default function DocumentsPanel() {
+export default function DocumentsPanel({ className = '' }: { className?: string }) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function DocumentsPanel() {
   const documents = data?.items ?? [];
 
   return (
-    <section className="w-72 shrink-0 border-r border-slate-200 bg-white flex flex-col min-h-0">
+    <section className={`flex-col min-h-0 bg-white ${className}`}>
       <div className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-200">
         <div>
           <h2 className="text-sm font-semibold text-slate-900 leading-tight">Documents</h2>
