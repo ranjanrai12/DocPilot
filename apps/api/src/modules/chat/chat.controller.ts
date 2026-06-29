@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as service from './chat.service.js';
+import { askAgentStream } from '../agent/agent.service.js';
 import { ConversationIdParam, ListConversationsQuery } from './chat.schema.js';
 import { httpError } from '../../lib/http-error.js';
 
@@ -50,9 +51,11 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
   }
 }
 
-// Phase 4: streams the answer over SSE (text/event-stream). The conversation is
-// verified first so 400/404 stay normal JSON errors before the stream opens;
-// once streaming, errors are delivered in-band as `error` events.
+// Phase 4: streams the answer over SSE (text/event-stream). Phase 5: the answer
+// is produced by the agent tool-calling loop, which also streams `tool_call` /
+// `tool_result` events. The conversation is verified first so 400/404 stay
+// normal JSON errors before the stream opens; once streaming, errors are
+// delivered in-band as `error` events.
 export async function ask(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { workspaceId } = req.user!;
@@ -81,11 +84,17 @@ export async function ask(req: Request, res: Response, next: NextFunction): Prom
     }, 15000);
 
     try {
-      const { message, citations, usage } = await service.askStream(
+      const { message, citations, usage } = await askAgentStream(
         workspaceId,
         parsed.data.id,
         req.body.question,
-        { onToken: (value) => send({ type: 'token', value }), signal: controller.signal },
+        {
+          onToken: (value) => send({ type: 'token', value }),
+          onToolCall: ({ id, name, args }) => send({ type: 'tool_call', id, name, args }),
+          onToolResult: ({ id, name, result, isError }) =>
+            send({ type: 'tool_result', id, name, result, isError }),
+          signal: controller.signal,
+        },
       );
       send({ type: 'done', messageId: message.id, citations, usage });
     } catch (streamErr) {

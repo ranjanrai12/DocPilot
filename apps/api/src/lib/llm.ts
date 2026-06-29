@@ -115,12 +115,58 @@ export interface ChatInput {
   signal?: AbortSignal;
 }
 
+// --- Agentic tool-calling (Phase 5, docs/05) --------------------------------
+
+/** A tool definition advertised to the model (JSON-Schema input). */
+export interface ToolSpec {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
+
+/** A single tool invocation the model requested. */
+export interface ToolUse {
+  id: string;
+  name: string;
+  input: unknown;
+}
+
+/** What a tool execution returns to the model. */
+export interface ToolOutcome {
+  content: string; // text fed back to the model as the tool_result
+  isError?: boolean;
+}
+
+export interface AgentStreamInput {
+  system: string;
+  messages: ChatTurn[];
+  tools: ToolSpec[];
+  maxTokens?: number;
+  /** Hard cap on tool round-trips so the model can't loop forever (safety). */
+  maxIterations?: number;
+  signal?: AbortSignal;
+}
+
+export interface AgentStreamHandlers {
+  onToken: (token: string) => void;
+  // Execute one tool call and return its result. The caller validates args,
+  // runs the (workspace-scoped) side effect, and returns the content string.
+  onToolUse: (use: ToolUse) => Promise<ToolOutcome>;
+}
+
 export interface ChatClient {
   complete(input: ChatInput): Promise<ChatResult>;
   // Streams token deltas via onToken; resolves with the full result. Pass an
   // AbortSignal to cancel the upstream LLM call when the client disconnects.
   stream(input: ChatInput, onToken: (token: string) => void): Promise<ChatResult>;
+  // Runs the bounded tool-calling loop (LLM -> tool_use -> execute -> result ->
+  // final answer), streaming the answer text via handlers.onToken. The caller
+  // executes tools via handlers.onToolUse; this driver only threads the
+  // Anthropic tool_use/tool_result blocks and accumulates token usage.
+  agentStream(input: AgentStreamInput, handlers: AgentStreamHandlers): Promise<ChatResult>;
 }
+
+const DEFAULT_MAX_ITERATIONS = 5;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -156,6 +202,73 @@ class AnthropicChat implements ChatClient {
     const text = final.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
     return { text, tokensIn: final.usage.input_tokens, tokensOut: final.usage.output_tokens };
   }
+
+  async agentStream(
+    { system, messages, tools, maxTokens, maxIterations = DEFAULT_MAX_ITERATIONS, signal }: AgentStreamInput,
+    handlers: AgentStreamHandlers,
+  ): Promise<ChatResult> {
+    const convo: Anthropic.MessageParam[] = messages.map((m) => ({ role: m.role, content: m.content }));
+    const toolDefs: Anthropic.Tool[] = tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.input_schema as Anthropic.Tool.InputSchema,
+    }));
+
+    let tokensIn = 0;
+    let tokensOut = 0;
+    // Accumulate text across turns so the persisted answer matches exactly what
+    // was streamed to the client (the model may narrate before a tool call).
+    let finalText = '';
+
+    // Bounded loop: each pass either ends the turn (final answer) or executes
+    // the requested tools and feeds the results back for another pass.
+    for (let i = 0; i < maxIterations; i++) {
+      const s = this.client.messages.stream(
+        { model: env.CHAT_MODEL, max_tokens: maxTokens ?? 1024, system, messages: convo, tools: toolDefs },
+        signal ? { signal } : undefined,
+      );
+      s.on('text', (delta) => handlers.onToken(delta));
+      const msg = await s.finalMessage();
+      tokensIn += msg.usage.input_tokens;
+      tokensOut += msg.usage.output_tokens;
+      finalText += msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+
+      const toolUses = msg.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+      if (msg.stop_reason !== 'tool_use' || toolUses.length === 0) {
+        return { text: finalText, tokensIn, tokensOut };
+      }
+
+      // Preserve the assistant turn verbatim (keeps the tool_use blocks), then
+      // execute each tool and return all results in a single user turn.
+      convo.push({ role: 'assistant', content: msg.content });
+      const results: Anthropic.ToolResultBlockParam[] = [];
+      for (const use of toolUses) {
+        const outcome = await handlers.onToolUse({ id: use.id, name: use.name, input: use.input });
+        results.push({
+          type: 'tool_result',
+          tool_use_id: use.id,
+          content: outcome.content,
+          is_error: outcome.isError ?? false,
+        });
+      }
+      convo.push({ role: 'user', content: results });
+    }
+
+    // Iteration cap hit: the last turn requested more tools, whose results are
+    // now in `convo` but unsynthesized. Make ONE final pass WITHOUT tools so the
+    // model must produce an answer from them instead of returning empty text.
+    const finalStream = this.client.messages.stream(
+      { model: env.CHAT_MODEL, max_tokens: maxTokens ?? 1024, system, messages: convo },
+      signal ? { signal } : undefined,
+    );
+    finalStream.on('text', (delta) => handlers.onToken(delta));
+    const finalMsg = await finalStream.finalMessage();
+    tokensIn += finalMsg.usage.input_tokens;
+    tokensOut += finalMsg.usage.output_tokens;
+    finalText += finalMsg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+
+    return { text: finalText, tokensIn, tokensOut };
+  }
 }
 
 // Deterministic dev driver — no key/cost. Proves the RAG plumbing end to end.
@@ -180,6 +293,42 @@ class FakeChat implements ChatClient {
       await sleep(20);
     }
     return result;
+  }
+
+  // Deterministic agent driver: always searches the documents, and additionally
+  // emails/creates a ticket when the question mentions it — so the full tool
+  // path (call -> execute -> result -> UI render) is exercised without a key.
+  async agentStream(input: AgentStreamInput, handlers: AgentStreamHandlers): Promise<ChatResult> {
+    const question = input.messages[input.messages.length - 1]?.content ?? '';
+    const has = (name: string) => input.tools.some((t) => t.name === name);
+    let tokensIn = Math.ceil((input.system.length + question.length) / 4);
+
+    if (has('search_documents')) {
+      await handlers.onToolUse({ id: 'fake_search_1', name: 'search_documents', input: { query: question } });
+    }
+    if (/\bemail\b/i.test(question) && has('email_summary')) {
+      await handlers.onToolUse({
+        id: 'fake_email_1',
+        name: 'email_summary',
+        input: { recipient: 'teammate@example.com', summary: `Summary of: ${question}` },
+      });
+    }
+    if (/\bticket\b/i.test(question) && has('create_ticket')) {
+      await handlers.onToolUse({
+        id: 'fake_ticket_1',
+        name: 'create_ticket',
+        input: { title: question.slice(0, 60) || 'Untitled', description: question },
+      });
+    }
+
+    const answer = `(fake agent) I used my tools to help with: "${question}". Set LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY for real tool-calling.`;
+    const tokens = answer.match(/\S+\s*/g) ?? [answer];
+    for (const t of tokens) {
+      if (input.signal?.aborted) throw new Error('aborted');
+      handlers.onToken(t);
+      await sleep(20);
+    }
+    return { text: answer, tokensIn, tokensOut: Math.ceil(answer.length / 4) };
   }
 }
 

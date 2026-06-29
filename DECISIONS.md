@@ -2,6 +2,35 @@
 
 Short notes on non-obvious choices. Great interview fuel (see roadmap §"working rhythm").
 
+## Phase 5 — Agentic tool-calling
+
+**The chat answer flow is now an agent loop**, not fixed retrieve-then-answer. `modules/agent`
+advertises three tools and lets Claude decide what to call: `search_documents` (real, tenant-scoped
+pgvector search — reuses Phase 3 retrieval), `email_summary` and `create_ticket` (MVP mocks that
+**log + return a structured result**, never silent no-ops). The old `chat.service.askStream` was
+removed; `chat.controller.ask` now drives `agent.askAgentStream` over the same SSE channel.
+
+- **Loop lives behind `lib/llm`** (`ChatClient.agentStream`) so the provider stays swappable: the
+  Anthropic `tool_use`/`tool_result` block threading is confined to `AnthropicChat`; `FakeChat` has a
+  deterministic driver (always searches; emails/creates a ticket when the question says so) so the full
+  tool path renders with **no API key**. The loop is **bounded** (`MAX_ITERATIONS=5`) against runaways.
+- **Safety (agent-tools skill):** every tool's args are zod-validated server-side before any side
+  effect; unknown tool / invalid args return a tool error (not a throw) so the model recovers; tool
+  side effects are scoped to `req.user.workspaceId` (a tool is an authorization surface); retrieved
+  document text stays delimited + escaped and the system prompt forbids document content from
+  triggering tools (prompt-injection). Tool-turn tokens are included in the `CHAT` `UsageEvent`.
+- **SSE additions:** `tool_call` / `tool_result` events stream live; the UI renders a tool-activity
+  chip (spinner → ✓/✗ + one-line result). Tool turns persist as `Message{role:TOOL, toolCall jsonb}`.
+- **Streamed == persisted:** answer text is accumulated across loop turns (not just the final turn) so
+  a reload matches what was streamed; on hitting the iteration cap a final **no-tools** pass synthesizes
+  an answer from the last tool results instead of returning empty text (rag-agent-reviewer fixes).
+
+**Review pass (rag-agent-reviewer + tenant-isolation-auditor): isolation PASS (no leaks); RAG issues
+addressed** (text accumulation + iteration-cap synthesis). `Message` has no `workspaceId` column by
+design — it is scoped via its parent `Conversation` + the `Message` RLS policy (proven by direct
+cross-tenant tests). Deferred to Phase 6: an aborted stream currently records no partial `UsageEvent`
+(full usage/cost accounting is Phase 6 scope).
+
 ## Phase 3 — Basic RAG chat (non-streaming)
 
 **RAG query flow** (`modules/chat/chat.service.ts` `ask`): embed question → **tenant-scoped

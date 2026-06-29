@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { prisma, withWorkspace, bypassRls } from './lib/prisma.js';
+import { searchWorkspaceChunks, loadHistory } from './modules/chat/chat.service.js';
 
 // Multi-tenant isolation — the project's #1 non-negotiable rule (CLAUDE.md,
 // docs/02 §7). This proves the RLS *backstop*: even a query that omits the
@@ -19,6 +20,11 @@ let docA = '';
 let docB = '';
 let convoA = '';
 let convoB = '';
+
+// A 1536-dim embedding (matches the pgvector column) for B's seed chunk, plus a
+// query vector — used to prove search_documents can't reach across tenants.
+const vecLiteral = `[${Array(1536).fill(0.0125).join(',')}]`;
+const queryVector = Array<number>(1536).fill(0.0125);
 
 beforeAll(async () => {
   await bypassRls(async (tx) => {
@@ -49,6 +55,18 @@ beforeAll(async () => {
     convoB = cb.id;
     await tx.message.create({ data: { conversationId: convoA, role: 'USER', content: 'message in A' } });
     await tx.message.create({ data: { conversationId: convoB, role: 'USER', content: 'message in B' } });
+
+    // B gets one embedded chunk (raw SQL — Prisma can't bind vector). Cascades
+    // away when docB is deleted in afterAll. Lets us prove the agent's vector
+    // search is tenant-scoped.
+    await tx.$executeRawUnsafe(
+      `INSERT INTO "Chunk" (id, "documentId", "workspaceId", content, embedding)
+       VALUES ($1, $2, $3, 'chunk in B', $4::vector)`,
+      randomUUID(),
+      docB,
+      wsB,
+      vecLiteral,
+    );
   });
 });
 
@@ -121,5 +139,20 @@ describe('multi-tenant isolation (RLS backstop)', () => {
         tx.message.create({ data: { conversationId: convoB, role: 'USER', content: 'cross-tenant leak' } }),
       ),
     ).rejects.toThrow();
+  });
+
+  // Phase 5: the agent's search_documents and history-load paths must not leak
+  // across tenants. These exercise the exported functions directly.
+  it("agent search_documents (searchWorkspaceChunks) scoped to A can't see B's chunk", async () => {
+    const fromA = await searchWorkspaceChunks(wsA, queryVector, 5);
+    expect(fromA.every((c) => c.documentId !== docB)).toBe(true);
+    // Sanity: B can see its own chunk, so the seed/query are valid.
+    const fromB = await searchWorkspaceChunks(wsB, queryVector, 5);
+    expect(fromB.some((c) => c.documentId === docB)).toBe(true);
+  });
+
+  it("agent loadHistory scoped to A returns nothing for B's conversation", async () => {
+    const history = await loadHistory(wsA, convoB, 20);
+    expect(history).toHaveLength(0);
   });
 });

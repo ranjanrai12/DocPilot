@@ -70,12 +70,25 @@ export interface ConversationDto {
   updatedAt: string;
 }
 
+/** A tool the agent invoked, persisted on a TOOL-role message (docs/05 Phase 5). */
+export interface ToolCallRecord {
+  /** Tool name, e.g. "search_documents" | "email_summary" | "create_ticket". */
+  name: string;
+  /** Validated arguments the model supplied. */
+  input: unknown;
+  /** Structured result returned to the model + rendered in the UI. */
+  result: unknown;
+  isError: boolean;
+}
+
 export interface MessageDto {
   id: string;
   conversationId: string;
   role: MsgRole;
   content: string;
   citations: Citation[] | null;
+  /** Populated only for TOOL-role messages; null otherwise. */
+  toolCall: ToolCallRecord | null;
   createdAt: string;
 }
 
@@ -95,8 +108,14 @@ export interface AskResponse {
   citations: Citation[];
 }
 
-/** SSE events streamed from POST /api/conversations/:id/messages (Phase 4). */
+/**
+ * SSE events streamed from POST /api/conversations/:id/messages.
+ * Phase 4: token | done | error. Phase 5 adds tool_call | tool_result so the
+ * UI can render the agent's tool activity inline as it happens.
+ */
 export type ChatStreamEvent =
   | { type: 'token'; value: string }
+  | { type: 'tool_call'; id: string; name: string; args: unknown }
+  | { type: 'tool_result'; id: string; name: string; result: unknown; isError: boolean }
   | { type: 'done'; messageId: string; citations: Citation[]; usage: { tokensIn: number; tokensOut: number } }
   | { type: 'error'; message: string };
