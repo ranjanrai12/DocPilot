@@ -6,6 +6,10 @@ const EnvSchema = z.object({
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
 
   DATABASE_URL: z.string().url(),
+  // Least-privilege runtime role (docpilot_app, NOBYPASSRLS) so RLS is enforced.
+  // Optional: falls back to DATABASE_URL (owner) if unset — but then RLS is
+  // bypassed, so set this in any real environment.
+  APP_DATABASE_URL: z.string().url().optional(),
 
   JWT_ACCESS_SECRET: z.string().min(16),
   JWT_REFRESH_SECRET: z.string().min(16),
