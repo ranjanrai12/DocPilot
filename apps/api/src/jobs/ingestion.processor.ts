@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { UnrecoverableError } from 'bullmq';
 import { withWorkspace } from '../lib/prisma.js';
 import { storage } from '../lib/storage.js';
 import { embedder } from '../lib/llm.js';
@@ -18,7 +19,14 @@ export async function processIngestion(data: IngestionJobData): Promise<void> {
   const doc = await withWorkspace(workspaceId, (tx) =>
     tx.document.findFirst({ where: { id: documentId, workspaceId } }),
   );
-  if (!doc) throw new Error(`Document ${documentId} not found in workspace ${workspaceId}.`);
+  if (!doc) {
+    // The document was deleted (or never committed) before ingestion ran — e.g.
+    // an orphaned job left over from a prior session. There's nothing to ingest
+    // and it will never reappear, so skip permanently: returning marks the job
+    // complete instead of failing + retrying (which would spam the logs).
+    console.warn(`[ingestion] document ${documentId} not found in workspace ${workspaceId} — skipping (deleted?).`);
+    return;
+  }
   if (doc.status === 'READY') return;
 
   try {
@@ -75,7 +83,13 @@ export async function processIngestion(data: IngestionJobData): Promise<void> {
         data: { status: 'FAILED', error: friendlyError(raw) },
       }),
     ).catch(() => {});
-    throw err; // surface to BullMQ for retry/visibility
+    // Terminal failures (bad/empty/unsupported file) won't succeed on retry —
+    // mark them UnrecoverableError so BullMQ stops instead of burning attempts.
+    // Other errors (storage/embedding blips) stay retryable.
+    if (err instanceof UnrecoverableError || /no extractable text|unsupported (mime|file)/i.test(raw)) {
+      throw new UnrecoverableError(friendlyError(raw));
+    }
+    throw err; // transient — surface to BullMQ for retry/visibility
   }
 }
 

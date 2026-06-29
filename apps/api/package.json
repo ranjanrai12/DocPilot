@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "pnpm run --parallel \"/^dev:/\"",
+    "dev:api": "tsx watch src/index.ts",
+    "dev:worker": "tsx watch src/jobs/worker.ts",
     "worker": "tsx watch src/jobs/worker.ts",
+    "queue:clear": "tsx src/jobs/clear-queue.ts",
     "worker:start": "node dist/jobs/worker.js",
     "build": "tsup src/index.ts src/jobs/worker.ts --format esm --clean",
     "start": "node dist/index.js",
