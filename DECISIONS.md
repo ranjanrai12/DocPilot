@@ -2,6 +2,34 @@
 
 Short notes on non-obvious choices. Great interview fuel (see roadmap §"working rhythm").
 
+## Phase 3 — Basic RAG chat (non-streaming)
+
+**RAG query flow** (`modules/chat/chat.service.ts` `ask`): embed question → **tenant-scoped
+pgvector `<=>` search** (top-K, `WHERE workspaceId`, parameterized, inside `withWorkspace`) →
+grounded prompt → LLM → persist user+assistant `Message` + `citations` + a `CHAT` `UsageEvent`.
+No migration needed — Conversation/Message tables existed since Phase 1 and already have RLS.
+
+- **Chat LLM behind `lib/llm`** (swappable): `AnthropicChat` (Claude via the official
+  `@anthropic-ai/sdk`, model `CHAT_MODEL` = `claude-opus-4-8`) + a `FakeChat` dev driver. Selected
+  by `LLM_PROVIDER`; falls back to fake if no `ANTHROPIC_API_KEY` (so dev runs with no keys/cost).
+- **Grounding / anti-hallucination**: system prompt answers ONLY from the `<context>` block, else the
+  exact "I don't know based on the documents." Retrieved text is delimited and **escaped** (both
+  filename attrs and chunk *body*) so poisoned document content can't break out of the tags and inject
+  instructions (prompt-injection mitigation, docs/02 §7).
+- **Citations** built only from chunks actually retrieved (one per source document); never fabricated.
+- Phase 3 is **non-streaming JSON**; Phase 4 converts `POST /api/conversations/:id/messages` to SSE.
+
+**Review pass (rag-agent-reviewer + tenant-isolation-auditor): both PASS.** Fixes applied: escape
+chunk body text; history window now takes the most-recent N (was oldest); embedding-dimension guard;
+added `Conversation`/`Message` cross-tenant tests (the `Message` RLS policy is scoped via its parent
+Conversation — now has direct coverage).
+
+> ⚠️ **Re-embed when switching embeddings provider.** Dev uses the deterministic `fake` embedder, so
+> retrieval isn't semantic. Turning on real embeddings (`EMBEDDING_PROVIDER=openai` + `OPENAI_API_KEY`,
+> 1536-dim to match the column) requires **re-ingesting existing documents** — old fake vectors share
+> the dimension so they'd retrieve poorly rather than error. Claude has no embeddings API, so embeddings
+> need OpenAI (or another provider) even though chat uses Claude.
+
 ## Phase 2 — Document upload + background ingestion
 
 **Swappable infra drivers (CLAUDE.md).** `lib/storage` and `lib/llm` are interfaces with

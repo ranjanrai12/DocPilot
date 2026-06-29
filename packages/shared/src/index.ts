@@ -51,3 +51,46 @@ export interface DocumentListResponse {
   items: DocumentDto[];
   nextCursor: string | null;
 }
+
+export type MsgRole = 'USER' | 'ASSISTANT' | 'TOOL';
+
+/** A source reference attached to an assistant answer (docs/04). */
+export interface Citation {
+  documentId: string;
+  filename: string;
+  page?: number;
+}
+
+export interface ConversationDto {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MessageDto {
+  id: string;
+  conversationId: string;
+  role: MsgRole;
+  content: string;
+  citations: Citation[] | null;
+  createdAt: string;
+}
+
+export interface ConversationListResponse {
+  items: ConversationDto[];
+  nextCursor: string | null;
+}
+
+export interface ConversationDetailResponse {
+  conversation: ConversationDto;
+  messages: MessageDto[];
+}
+
+/** Response of POST /api/conversations/:id/messages (Phase 3 — non-streaming). */
+export interface AskResponse {
+  message: MessageDto;
+  citations: Citation[];
+}

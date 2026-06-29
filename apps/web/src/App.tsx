@@ -20,6 +20,8 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          {/* Documents + chat now live together on /dashboard. */}
+          <Route path="/chat" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>

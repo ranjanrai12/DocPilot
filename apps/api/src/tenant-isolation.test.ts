@@ -17,6 +17,8 @@ let wsA = '';
 let wsB = '';
 let docA = '';
 let docB = '';
+let convoA = '';
+let convoB = '';
 
 beforeAll(async () => {
   await bypassRls(async (tx) => {
@@ -25,10 +27,10 @@ beforeAll(async () => {
     wsA = a.id;
     wsB = b.id;
 
-    await tx.user.create({
+    const ua = await tx.user.create({
       data: { email: `a-${tag}@example.test`, passwordHash: 'x', workspaceId: wsA, role: 'ADMIN' },
     });
-    await tx.user.create({
+    const ub = await tx.user.create({
       data: { email: `b-${tag}@example.test`, passwordHash: 'x', workspaceId: wsB, role: 'ADMIN' },
     });
 
@@ -40,11 +42,19 @@ beforeAll(async () => {
     });
     docA = da.id;
     docB = db.id;
+
+    const ca = await tx.conversation.create({ data: { workspaceId: wsA, userId: ua.id, title: `convo-A-${tag}` } });
+    const cb = await tx.conversation.create({ data: { workspaceId: wsB, userId: ub.id, title: `convo-B-${tag}` } });
+    convoA = ca.id;
+    convoB = cb.id;
+    await tx.message.create({ data: { conversationId: convoA, role: 'USER', content: 'message in A' } });
+    await tx.message.create({ data: { conversationId: convoB, role: 'USER', content: 'message in B' } });
   });
 });
 
 afterAll(async () => {
   await bypassRls(async (tx) => {
+    await tx.conversation.deleteMany({ where: { workspaceId: { in: [wsA, wsB] } } }); // cascades messages
     await tx.document.deleteMany({ where: { workspaceId: { in: [wsA, wsB] } } });
     await tx.user.deleteMany({ where: { workspaceId: { in: [wsA, wsB] } } });
     await tx.workspace.deleteMany({ where: { id: { in: [wsA, wsB] } } });
@@ -96,5 +106,20 @@ describe('multi-tenant isolation (RLS backstop)', () => {
       tx.document.updateMany({ where: { id: docB }, data: { filename: 'hacked.pdf' } }),
     );
     expect(res.count).toBe(0);
+  });
+
+  it("scoped to A: cannot read B's messages (Message is scoped via its parent Conversation)", async () => {
+    const messages = await withWorkspace(wsA, (tx) => tx.message.findMany());
+    const convoIds = messages.map((m) => m.conversationId);
+    expect(convoIds).toContain(convoA);
+    expect(convoIds).not.toContain(convoB);
+  });
+
+  it("scoped to A: WITH CHECK rejects inserting a Message into B's conversation", async () => {
+    await expect(
+      withWorkspace(wsA, (tx) =>
+        tx.message.create({ data: { conversationId: convoB, role: 'USER', content: 'cross-tenant leak' } }),
+      ),
+    ).rejects.toThrow();
   });
 });

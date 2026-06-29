@@ -45,6 +45,14 @@ const EnvSchema = z.object({
   EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   OPENAI_API_KEY: z.string().optional(),
 
+  // Chat LLM (lib/llm). `fake` = deterministic dev driver (no key/cost);
+  // `anthropic` uses Claude and needs ANTHROPIC_API_KEY (falls back to fake in
+  // dev if the key is missing).
+  LLM_PROVIDER: z.enum(['anthropic', 'fake']).default('fake'),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  CHAT_MODEL: z.string().default('claude-opus-4-8'),
+  RAG_TOP_K: z.coerce.number().int().min(1).max(20).default(5),
+
   // Uploads
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(25),
 }).superRefine((val, ctx) => {
@@ -62,6 +70,9 @@ const EnvSchema = z.object({
   // In production the runtime MUST use the least-privilege role or RLS is a no-op.
   if (val.NODE_ENV === 'production' && !val.APP_DATABASE_URL) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['APP_DATABASE_URL'], message: 'APP_DATABASE_URL (least-privilege docpilot_app role) is required in production so RLS is enforced' });
+  }
+  if (val.NODE_ENV === 'production' && val.LLM_PROVIDER === 'anthropic' && !val.ANTHROPIC_API_KEY) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['ANTHROPIC_API_KEY'], message: 'ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic' });
   }
 });
 
