@@ -1,15 +1,28 @@
 import { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ConversationDetailResponse, ConversationDto, Citation } from '@docpilot/shared';
+import type {
+  ConversationDetailResponse,
+  ConversationDto,
+  Citation,
+  ToolCallRecord,
+} from '@docpilot/shared';
 import { api, ApiRequestError } from '../lib/api';
 
 const EXAMPLE_QUESTIONS = [
   'Give me a summary of my documents',
-  'What are the main topics covered?',
-  'List any dates, deadlines, or numbers',
+  'Email a summary to my teammate',
+  'Create a ticket to follow up on the open items',
 ];
 
-type Streaming = { id: string; question: string; answer: string; citations: Citation[] };
+// A tool the agent invoked during the live stream (done flips on tool_result).
+type ToolActivity = { id: string; name: string; args: unknown; result?: unknown; isError?: boolean; done: boolean };
+type Streaming = {
+  id: string;
+  question: string;
+  answer: string;
+  citations: Citation[];
+  tools: ToolActivity[];
+};
 
 export default function ChatThread({
   selectedId,
@@ -50,7 +63,7 @@ export default function ChatThread({
     }
     setDraft('');
     setError(null);
-    setStreaming({ id, question: q, answer: '', citations: [] });
+    setStreaming({ id, question: q, answer: '', citations: [], tools: [] });
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -64,6 +77,21 @@ export default function ChatThread({
           onEvent: (ev) => {
             if (ev.type === 'token') {
               setStreaming((s) => (s ? { ...s, answer: s.answer + ev.value } : s));
+            } else if (ev.type === 'tool_call') {
+              setStreaming((s) =>
+                s ? { ...s, tools: [...s.tools, { id: ev.id, name: ev.name, args: ev.args, done: false }] } : s,
+              );
+            } else if (ev.type === 'tool_result') {
+              setStreaming((s) =>
+                s
+                  ? {
+                      ...s,
+                      tools: s.tools.map((t) =>
+                        t.id === ev.id ? { ...t, result: ev.result, isError: ev.isError, done: true } : t,
+                      ),
+                    }
+                  : s,
+              );
             } else if (ev.type === 'done') {
               setStreaming((s) => (s ? { ...s, citations: ev.citations } : s));
             } else if (ev.type === 'error') {
@@ -126,24 +154,33 @@ export default function ChatThread({
           </div>
         ) : (
           <div className="max-w-2xl mx-auto space-y-4">
-            {messages.map((m) => (
-              <Bubble key={m.id} role={m.role === 'USER' ? 'user' : 'assistant'} citations={m.citations ?? undefined}>
-                {m.content}
-              </Bubble>
-            ))}
+            {messages.map((m) =>
+              m.role === 'TOOL' ? (
+                <ToolChip key={m.id} tool={toolFromRecord(m.toolCall)} />
+              ) : (
+                <Bubble key={m.id} role={m.role === 'USER' ? 'user' : 'assistant'} citations={m.citations ?? undefined}>
+                  {m.content}
+                </Bubble>
+              ),
+            )}
             {streaming && streaming.id === selectedId && (
               <>
                 <Bubble role="user">{streaming.question}</Bubble>
-                <Bubble role="assistant" citations={streaming.citations.length ? streaming.citations : undefined}>
-                  {streaming.answer ? (
-                    <span>
-                      {streaming.answer}
-                      <span className="inline-block w-1.5 h-4 align-text-bottom bg-slate-400 ml-0.5 animate-pulse" />
-                    </span>
-                  ) : (
-                    <Dots />
-                  )}
-                </Bubble>
+                {streaming.tools.map((t) => (
+                  <ToolChip key={t.id} tool={t} />
+                ))}
+                {(streaming.answer || streaming.tools.length === 0) && (
+                  <Bubble role="assistant" citations={streaming.citations.length ? streaming.citations : undefined}>
+                    {streaming.answer ? (
+                      <span>
+                        {streaming.answer}
+                        <span className="inline-block w-1.5 h-4 align-text-bottom bg-slate-400 ml-0.5 animate-pulse" />
+                      </span>
+                    ) : (
+                      <Dots />
+                    )}
+                  </Bubble>
+                )}
               </>
             )}
           </div>
@@ -250,5 +287,64 @@ function Dots() {
       <span className="h-1.5 w-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:-0.15s]" />
       <span className="h-1.5 w-1.5 rounded-full bg-slate-300 animate-bounce" />
     </span>
+  );
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  search_documents: 'Searched documents',
+  email_summary: 'Emailed a summary',
+  create_ticket: 'Created a ticket',
+};
+
+// Adapt a persisted toolCall record (history) to the live ToolActivity shape.
+function toolFromRecord(record: ToolCallRecord | null): ToolActivity {
+  return {
+    id: 'persisted',
+    name: record?.name ?? 'tool',
+    args: record?.input,
+    result: record?.result,
+    isError: record?.isError ?? false,
+    done: true,
+  };
+}
+
+// One-line summary of a tool result, read defensively (result shape is unknown).
+function toolResultSummary(tool: ToolActivity): string | null {
+  const r = tool.result;
+  if (!r || typeof r !== 'object') return null;
+  const o = r as Record<string, unknown>;
+  if (tool.name === 'search_documents' && typeof o.count === 'number') {
+    return `${o.count} passage${o.count === 1 ? '' : 's'}`;
+  }
+  if (tool.name === 'email_summary' && typeof o.recipient === 'string') return `to ${o.recipient}`;
+  if (tool.name === 'create_ticket' && typeof o.ticketId === 'string') return String(o.ticketId);
+  return null;
+}
+
+function ToolChip({ tool }: { tool: ToolActivity }) {
+  const label = TOOL_LABELS[tool.name] ?? tool.name;
+  const summary = tool.done ? toolResultSummary(tool) : null;
+  return (
+    <div className="flex justify-start">
+      <div
+        className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs ${
+          tool.isError
+            ? 'bg-rose-50 border-rose-200 text-rose-700'
+            : 'bg-slate-100 border-slate-200 text-slate-600'
+        }`}
+        title={tool.name}
+      >
+        {tool.done ? (
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            {tool.isError ? <path d="M18 6 6 18M6 6l12 12" /> : <path d="M20 6 9 17l-5-5" />}
+          </svg>
+        ) : (
+          <span className="h-3 w-3 shrink-0 rounded-full border-2 border-slate-300 border-t-indigo-500 animate-spin" />
+        )}
+        <span className="font-medium">{label}</span>
+        {summary && <span className="text-slate-400">· {summary}</span>}
+        {!tool.done && <span className="text-slate-400">…</span>}
+      </div>
+    </div>
   );
 }
