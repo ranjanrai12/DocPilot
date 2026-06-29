@@ -7,6 +7,7 @@ import { prisma, assertRlsEnforced } from './lib/prisma.js';
 import { pingRedis, isRedisConfigured } from './lib/redis.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import documentRoutes from './modules/documents/documents.routes.js';
+import conversationRoutes from './modules/chat/chat.routes.js';
 import { errorHandler } from './middleware/errors.js';
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/conversations', conversationRoutes);
 
 app.get('/api/health', async (_req, res) => {
   let db: HealthResponse['db'] = 'unknown';

@@ -21,6 +21,7 @@
     "db:seed": "prisma db seed"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@docpilot/shared": "workspace:*",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
