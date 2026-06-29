@@ -21,9 +21,23 @@ Read the docs before making changes — they are the source of truth:
 
 ## Current status
 
-🟢 **Phase 0 complete.** pnpm monorepo scaffolded and verified: `apps/api` (Express + TS, zod-validated
-env, `/api/health`), `apps/web` (React + Vite + TS + TanStack Query, calls the API), `packages/shared`
-(shared types). Both apps start and typecheck/build clean. **Next: Phase 1** (auth + database).
+🟢 **Phases 0–5 complete.** Built and merged to `main`:
+- **P0** monorepo scaffold (`apps/api`, `apps/web`, `packages/shared`); env validation; `/api/health`.
+- **P1** auth (JWT access + httpOnly refresh) + Prisma/Supabase; multi-tenancy via explicit
+  `workspaceId` scoping backed by **Postgres RLS** (least-privilege `docpilot_app` role) + an
+  isolation test.
+- **P2** document upload → R2/S3 storage → **BullMQ** background ingestion (extract → chunk → embed →
+  pgvector); status polling UI.
+- **P3** RAG chat — tenant-scoped pgvector search → grounded prompt → answer + citations.
+- **P4** SSE streaming (`fetch`+`ReadableStream` over POST), Stop via `AbortController`, conversation
+  history sidebar.
+- **P5** agentic tool-calling — `lib/llm` `agentStream` loop behind the swappable client;
+  `modules/agent` tools (`search_documents` real + tenant-scoped, `email_summary`/`create_ticket`
+  mocked); `tool_call`/`tool_result` SSE events; tool chips in the UI.
+
+Both apps typecheck/build clean. **Next: Phase 6** (production hardening — rate limits + usage/cost
+accounting, RBAC/invites, security pass, logging/Sentry, tests, CI/CD, deploy). See `DECISIONS.md`
+for per-phase rationale and review-pass notes.
 
 ## Locked tech stack
 
