@@ -15,8 +15,10 @@ export class ApiRequestError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = tokenStore.get();
+  // For FormData, let the browser set Content-Type (with the multipart boundary).
+  const isForm = init.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isForm ? {} : { 'Content-Type': 'application/json' }),
     ...(init.headers as Record<string, string>),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -40,5 +42,6 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined }),
+  upload: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
