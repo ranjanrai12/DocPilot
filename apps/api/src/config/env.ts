@@ -1,3 +1,7 @@
+// Load apps/api/.env into process.env before validating. In production the host
+// provides real env vars and there's no .env file — dotenv then just no-ops.
+// (tsx/node don't auto-load .env, and env validation runs before Prisma would.)
+import 'dotenv/config';
 import { z } from 'zod';
 
 // Treat a blank optional URL var (e.g. `REDIS_URL=` left empty in .env) as unset
