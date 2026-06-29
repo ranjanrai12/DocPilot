@@ -9,5 +9,8 @@ build/
 coverage/
 .vite/
 
+# Local filesystem storage driver (dev uploads)
+.uploads/
+
 # Claude Code: commit shared settings, ignore personal overrides
 .claude/settings.local.json

@@ -32,3 +32,22 @@ export interface AuthResponse {
 export interface RefreshResponse {
   accessToken: string;
 }
+
+export type DocStatus = 'PROCESSING' | 'READY' | 'FAILED';
+
+/** Public document shape returned by the documents API (omits internal storageKey). */
+export interface DocumentDto {
+  id: string;
+  workspaceId: string;
+  filename: string;
+  mimeType: string;
+  status: DocStatus;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentListResponse {
+  items: DocumentDto[];
+  nextCursor: string | null;
+}

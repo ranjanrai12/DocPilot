@@ -4,7 +4,9 @@ import cookieParser from 'cookie-parser';
 import type { HealthResponse } from '@docpilot/shared';
 import { env } from './config/env.js';
 import { prisma } from './lib/prisma.js';
+import { pingRedis, isRedisConfigured } from './lib/redis.js';
 import authRoutes from './modules/auth/auth.routes.js';
+import documentRoutes from './modules/documents/documents.routes.js';
 import { errorHandler } from './middleware/errors.js';
 
 const app = express();
@@ -14,6 +16,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/documents', documentRoutes);
 
 app.get('/api/health', async (_req, res) => {
   let db: HealthResponse['db'] = 'unknown';
@@ -23,7 +26,12 @@ app.get('/api/health', async (_req, res) => {
   } catch {
     db = 'down';
   }
-  const body: HealthResponse = { status: 'ok', db, redis: 'unknown' };
+  const redis: HealthResponse['redis'] = !isRedisConfigured()
+    ? 'unknown'
+    : (await pingRedis())
+      ? 'up'
+      : 'down';
+  const body: HealthResponse = { status: 'ok', db, redis };
   res.json(body);
 });
 

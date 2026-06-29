@@ -2,6 +2,33 @@
 
 Short notes on non-obvious choices. Great interview fuel (see roadmap §"working rhythm").
 
+## Phase 2 — Document upload + background ingestion
+
+**Swappable infra drivers (CLAUDE.md).** `lib/storage` and `lib/llm` are interfaces with
+multiple drivers selected by env, so no provider is hard-wired:
+- **Storage** — `local` filesystem driver (dev default, `STORAGE_DIR`) + an `s3`/R2 driver
+  that dynamically imports `@aws-sdk/client-s3` only when `STORAGE_DRIVER=s3` (so the SDK
+  isn't a hard dependency for local dev).
+- **Embeddings** — `fake` deterministic driver (mulberry32 PRNG seeded from a text hash →
+  unit-length 1536-dim vector; no key/cost, dev default) + an `openai` driver via `fetch`
+  (no SDK). Swap with `EMBEDDING_PROVIDER`.
+
+**Ingestion runs in a BullMQ worker, never inline** (docs/02 §3A). Upload → store file →
+create `Document` (PROCESSING) → enqueue → `202`. Worker: download → extract
+(pdf-parse v2 / mammoth / txt) → chunk (~500 words, 50 overlap) → embed → insert chunks →
+READY. Processor is **idempotent** (clears prior chunks; skips already-READY) so a retry
+can't duplicate data. Failures set status FAILED + `error` so nothing sticks in PROCESSING.
+
+**pgvector chunks insert via raw SQL** inside `withWorkspace` (RLS GUC set), since Prisma
+can't bind the `vector` type. The `docpilot_app` role needed `USAGE` on the `extensions`
+schema + `extensions` on its `search_path` for the `<=>` operator and HNSW index to resolve.
+
+**Gotchas hit:** (1) BullMQ bundles ioredis 5.10 but our direct dep was 5.11 → type clash on
+`connection`; fixed with a single `ioredis` override in `pnpm-workspace.yaml`. (2) Prisma's
+client init auto-loads `.env` into `process.env` — so a malformed var in `.env` (e.g. a bad
+`REDIS_URL`) fails env validation at boot even if unset in the shell. Optional URL env vars
+now treat blank as unset.
+
 ## Phase 1 — RLS backstop + tenant-isolation test
 
 **Defense in depth for multi-tenancy.** The primary control is the explicit
