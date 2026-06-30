@@ -15,6 +15,8 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
+  // Pino log level (lib/logger). `debug` is handy in dev; keep `info` in prod.
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   DATABASE_URL: z.string().url(),
   // Least-privilege runtime role (docpilot_app, NOBYPASSRLS) so RLS is enforced.

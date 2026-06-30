@@ -1,11 +1,14 @@
 import { Worker } from 'bullmq';
 import { getRedis } from '../lib/redis.js';
+import { logger } from '../lib/logger.js';
 import { INGESTION_QUEUE, type IngestionJobData } from './ingestion.queue.js';
 import { processIngestion } from './ingestion.processor.js';
 
 // Standalone worker process: `pnpm --filter api worker` (dev) / `node dist/jobs/worker.js`.
 // Separate from the API so slow ingestion never blocks request handling.
 // Exits with a clear error if REDIS_URL isn't configured.
+const log = logger.child({ component: 'ingestion-worker' });
+
 const worker = new Worker<IngestionJobData>(
   INGESTION_QUEUE,
   async (job) => {
@@ -15,11 +18,11 @@ const worker = new Worker<IngestionJobData>(
 );
 
 worker.on('completed', (job) => {
-  console.log(`✅ ingestion ${job.id} done (document ${job.data.documentId})`);
+  log.info({ jobId: job.id, documentId: job.data.documentId }, 'ingestion done');
 });
 
 worker.on('failed', (job, err) => {
-  console.error(`❌ ingestion ${job?.id} failed: ${err.message}`);
+  log.error({ jobId: job?.id, documentId: job?.data.documentId, err: err.message }, 'ingestion failed');
 });
 
-console.log('👷 Ingestion worker started — waiting for jobs...');
+log.info('👷 Ingestion worker started — waiting for jobs...');

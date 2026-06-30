@@ -3,6 +3,7 @@ import type { Citation } from '@docpilot/shared';
 import type { ZodSchema } from 'zod';
 import { embedder, type ToolSpec } from '../../lib/llm.js';
 import { env } from '../../config/env.js';
+import { logger } from '../../lib/logger.js';
 import {
   searchWorkspaceChunks,
   buildCitations,
@@ -101,8 +102,9 @@ const emailSummary: AgentTool = {
     const { recipient, summary } = EmailSummaryInput.parse(input);
     // MVP: no email provider wired yet — log the intended action (clearly a
     // mock, not a silent no-op) so the demo is honest and auditable.
-    console.info(
-      `[agent] email_summary (mock) workspace=${ctx.workspaceId} to=${recipient} chars=${summary.length}`,
+    logger.info(
+      { tool: 'email_summary', mock: true, workspaceId: ctx.workspaceId, recipient, chars: summary.length },
+      'agent tool (mock): email_summary',
     );
     return {
       content: `Email to ${recipient} has been queued (mock — no email provider is configured).`,
@@ -133,8 +135,9 @@ const createTicket: AgentTool = {
   async execute(input, ctx) {
     const { title, description } = CreateTicketInput.parse(input);
     const ticketId = `TICKET-${randomUUID().slice(0, 8).toUpperCase()}`;
-    console.info(
-      `[agent] create_ticket (mock) workspace=${ctx.workspaceId} id=${ticketId} title=${JSON.stringify(title)} chars=${description.length}`,
+    logger.info(
+      { tool: 'create_ticket', mock: true, workspaceId: ctx.workspaceId, ticketId, title, chars: description.length },
+      'agent tool (mock): create_ticket',
     );
     return {
       content: `Created ticket ${ticketId} (mock — no ticketing integration is configured).`,
