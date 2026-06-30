@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { UnrecoverableError } from 'bullmq';
 import { withWorkspace } from '../lib/prisma.js';
+import { logger } from '../lib/logger.js';
 import { storage } from '../lib/storage.js';
 import { embedder } from '../lib/llm.js';
 import { extractText } from './extract.js';
@@ -24,7 +25,7 @@ export async function processIngestion(data: IngestionJobData): Promise<void> {
     // an orphaned job left over from a prior session. There's nothing to ingest
     // and it will never reappear, so skip permanently: returning marks the job
     // complete instead of failing + retrying (which would spam the logs).
-    console.warn(`[ingestion] document ${documentId} not found in workspace ${workspaceId} — skipping (deleted?).`);
+    logger.warn({ documentId, workspaceId }, 'ingestion skipped — document not found (deleted?)');
     return;
   }
   if (doc.status === 'READY') return;
@@ -76,7 +77,7 @@ export async function processIngestion(data: IngestionJobData): Promise<void> {
   } catch (err) {
     const raw = err instanceof Error ? err.message : 'Ingestion failed.';
     // Full detail stays server-side; only a sanitized message is shown to users.
-    console.error(`[ingestion] document ${documentId} failed:`, raw);
+    logger.error({ documentId, workspaceId, err: raw }, 'ingestion processing failed');
     await withWorkspace(workspaceId, (tx) =>
       tx.document.updateMany({
         where: { id: documentId, workspaceId },

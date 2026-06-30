@@ -3,6 +3,7 @@ import * as service from './chat.service.js';
 import { askAgentStream } from '../agent/agent.service.js';
 import { ConversationIdParam, ListConversationsQuery } from './chat.schema.js';
 import { httpError } from '../../lib/http-error.js';
+import { logger } from '../../lib/logger.js';
 
 export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -99,7 +100,10 @@ export async function ask(req: Request, res: Response, next: NextFunction): Prom
       send({ type: 'done', messageId: message.id, citations, usage });
     } catch (streamErr) {
       if (!controller.signal.aborted) {
-        console.error('[chat] stream failed:', streamErr instanceof Error ? streamErr.message : streamErr);
+        logger.error(
+          { err: streamErr instanceof Error ? streamErr.message : streamErr, conversationId: parsed.data.id },
+          'chat stream failed',
+        );
         send({ type: 'error', message: 'Failed to generate the answer.' });
       }
     } finally {

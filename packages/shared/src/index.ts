@@ -1,6 +1,7 @@
-/** Response shape of GET /api/health */
+/** Response shape of GET /api/health. `degraded` (HTTP 503) means a critical
+ *  dependency (the database) is unreachable. */
 export interface HealthResponse {
-  status: 'ok';
+  status: 'ok' | 'degraded';
   db: 'up' | 'down' | 'unknown';
   redis: 'up' | 'down' | 'unknown';
 }
