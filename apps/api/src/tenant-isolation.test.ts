@@ -184,7 +184,8 @@ describe('multi-tenant isolation (RLS backstop)', () => {
   });
 
   it("admin in A cannot change role of B's user (404)", async () => {
-    await expect(updateMemberRole(wsA, userB, 'MEMBER')).rejects.toMatchObject({ status: 404 });
+    // Caller is A's admin (passes the freshness check); target is B's user.
+    await expect(updateMemberRole(wsA, userA, userB, 'MEMBER')).rejects.toMatchObject({ status: 404 });
   });
 
   it("admin in A cannot remove B's user (404)", async () => {

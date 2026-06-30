@@ -15,6 +15,26 @@ reported but non-fatal (the API still serves auth/chat; only ingestion needs Red
 logs operational errors at warn and unexpected errors with full detail server-side, still returning the
 generic `INTERNAL` shape (no internals leaked).
 
+**Slice 4 — Security pass.** Hardening across the API, including the slice-3 RBAC review findings.
+- **Security headers** — `helmet` (CSP disabled; this is a JSON/SSE API with no first-party HTML).
+  `trust proxy` is enabled only in production so `req.ip` reflects the real client behind the load
+  balancer, without trusting spoofable `X-Forwarded-For` in dev.
+- **Brute-force guard** — the rate limiter now supports per-IP keying; `auth` login/signup/refresh are
+  limited per IP (`RATE_LIMIT_AUTH_PER_MIN`, default 10) since there's no workspace pre-auth.
+- **Last-admin TOCTOU (was the audit's MEDIUM)** — demote/remove now `SELECT … FOR UPDATE` the
+  workspace's admin rows before the count, so two concurrent requests can't both pass the last-admin
+  check and leave a workspace with zero admins.
+- **Stale-JWT privilege** — admin mutations re-verify the caller is *currently* an admin in the DB
+  (`assertCallerIsAdmin`), not trusting the up-to-15m access token; a just-demoted/removed admin is
+  blocked immediately on these sensitive routes.
+- **Defense-in-depth writes** — member `update`/`delete` are now `updateMany`/`deleteMany` scoped by
+  `{ id, workspaceId }`, so isolation doesn't rely on RLS alone.
+- **Cross-tenant enumeration** — invite conflicts return a neutral 409 message (the global-unique email
+  no longer confirms whether an address exists in another workspace). Full fix is the emailed-invite
+  flow (the documented production step).
+- Input validation (zod at every boundary), the standard error shape, no-localStorage token handling,
+  and prompt-injection escaping were reviewed and already in place from earlier phases.
+
 **Slice 3 — RBAC + team management** (`modules/members`). The `ADMIN`/`MEMBER` roles existed since
 Phase 1 but weren't enforced; this wires them up.
 - `GET /api/members` — team roster, visible to any authenticated member. `POST` (invite),

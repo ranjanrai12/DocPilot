@@ -5,6 +5,10 @@ import type { SignupBody, LoginBody } from './auth.schema.js';
 
 const BCRYPT_COST = 12;
 
+// Compared against when the email doesn't exist, so /login takes ~the same time
+// whether or not the account is real (mitigates timing-based user enumeration).
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-placeholder-password', BCRYPT_COST);
+
 function toPublicUser(user: { id: string; workspaceId: string; email: string; role: string; createdAt: Date }) {
   return { id: user.id, workspaceId: user.workspaceId, email: user.email, role: user.role, createdAt: user.createdAt };
 }
@@ -41,7 +45,8 @@ export async function signup(body: SignupBody) {
 
 export async function login(body: LoginBody) {
   const user = await bypassRls((tx) => tx.user.findUnique({ where: { email: body.email } }));
-  const valid = user ? await bcrypt.compare(body.password, user.passwordHash) : false;
+  // Always run a compare (dummy hash when the user is absent) to equalize timing.
+  const valid = await bcrypt.compare(body.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
 
   if (!user || !valid) {
     const err = new Error('Invalid email or password.') as Error & { status: number; code: string };

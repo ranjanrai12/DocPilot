@@ -62,6 +62,8 @@ const EnvSchema = z.object({
   // Redis is unavailable so a Redis blip can't take the API down.
   RATE_LIMIT_CHAT_PER_MIN: z.coerce.number().int().positive().default(30),
   RATE_LIMIT_UPLOAD_PER_MIN: z.coerce.number().int().positive().default(20),
+  // Per-IP limit on auth endpoints (login/signup) to blunt brute-force.
+  RATE_LIMIT_AUTH_PER_MIN: z.coerce.number().int().positive().default(10),
 }).superRefine((val, ctx) => {
   // Conditionally-required vars — fail at startup, not on first use.
   if (val.STORAGE_DRIVER === 's3') {

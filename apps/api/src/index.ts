@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import type { HealthResponse } from '@docpilot/shared';
 import { env } from './config/env.js';
@@ -15,6 +16,18 @@ import memberRoutes from './modules/members/members.routes.js';
 import { errorHandler } from './middleware/errors.js';
 
 const app = express();
+
+// Behind a load balancer in prod (so req.ip uses X-Forwarded-For for IP-based
+// rate limiting); off in dev to avoid trusting spoofable headers locally.
+// NOTE: `1` assumes exactly ONE proxy hop. Verify the hop count on the deploy
+// platform — too high a value lets clients spoof X-Forwarded-For and defeat the
+// per-IP auth limiter.
+app.set('trust proxy', env.NODE_ENV === 'production' ? 1 : false);
+
+// Security headers. This is a JSON/SSE API (no first-party HTML), so the
+// HTML-oriented CSP is unnecessary and left off; the rest of helmet's defaults
+// (nosniff, frameguard, HSTS in prod, etc.) apply.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // Structured per-request logging (attaches a request id + req.log). Health
 // checks are polled frequently, so don't log them at info.
