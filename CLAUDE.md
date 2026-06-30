@@ -34,10 +34,14 @@ Read the docs before making changes — they are the source of truth:
 - **P5** agentic tool-calling — `lib/llm` `agentStream` loop behind the swappable client;
   `modules/agent` tools (`search_documents` real + tenant-scoped, `email_summary`/`create_ticket`
   mocked); `tool_call`/`tool_result` SSE events; tool chips in the UI.
+- **P6** production hardening — Pino logging + real `/health`; per-workspace + per-IP rate limits;
+  usage/cost tracking (`UsageEvent` + `GET /api/usage`); RBAC team management (`modules/members`);
+  security pass (helmet, last-admin TOCTOU lock, stale-JWT re-check); Vitest unit suite + integration
+  split + GitHub Actions CI; `render.yaml` deploy blueprint + README. Live deploy is operator-driven.
 
-Both apps typecheck/build clean. **Next: Phase 6** (production hardening — rate limits + usage/cost
-accounting, RBAC/invites, security pass, logging/Sentry, tests, CI/CD, deploy). See `DECISIONS.md`
-for per-phase rationale and review-pass notes.
+All phases (0–6) are code-complete; apps typecheck/build clean and unit tests pass. See `DECISIONS.md`
+for per-phase rationale and review-pass notes. Remaining is operator-driven: provision hosting + a public
+demo URL, and (deferred) a real ESLint config in place of the `lint` no-op stub.
 
 ## Locked tech stack
 

@@ -1,5 +1,10 @@
 import type { ApiError, ChatStreamEvent } from '@docpilot/shared';
 
+// In production the SPA and API are on different origins, so requests are
+// prefixed with the API base URL (set at build via VITE_API_BASE_URL). In dev
+// it's empty — relative '/api/...' paths go through the Vite proxy.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+
 // Reads the in-memory access token. Set by AuthContext after login/signup/refresh.
 let _accessToken: string | null = null;
 export const tokenStore = {
@@ -29,7 +34,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(path, { ...init, headers, credentials: 'include' });
+  const res = await fetch(API_BASE_URL + path, { ...init, headers, credentials: 'include' });
 
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as ApiError | null;
@@ -57,7 +62,7 @@ async function streamRequest(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE_URL + path, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),

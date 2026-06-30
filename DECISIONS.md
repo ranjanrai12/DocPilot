@@ -2,9 +2,25 @@
 
 Short notes on non-obvious choices. Great interview fuel (see roadmap §"working rhythm").
 
-## Phase 6 — Production hardening (in progress)
+## Phase 6 — Production hardening
 
 Built in small, independently-shippable slices (one branch + `--no-ff` merge each).
+
+**Slice 6 — Deploy + README.**
+
+- **`render.yaml`** Blueprint deploys three services — API (web), ingestion worker (background), and the
+  SPA (static site) — reusing the existing managed Supabase (pgvector + RLS + `docpilot_app` role) and
+  Redis via `sync:false` env vars rather than Render-managed instances (avoids re-bootstrapping pgvector
+  + the `extensions`-schema migration gap noted in Phase 2). Migrations run in the API's
+  `preDeployCommand` (`prisma migrate deploy`), never at app boot. Shared secrets live in an
+  `envVarGroup`; JWT secrets are `generateValue`.
+- **Web → API cross-origin.** `lib/api` now prefixes requests with `VITE_API_BASE_URL` (typed via
+  `vite-env.d.ts`); empty in dev so relative `/api` paths still go through the Vite proxy, set to the API
+  URL for the production build.
+- **README** rewritten as the portfolio centerpiece: a Mermaid architecture diagram, request flows, the
+  stack + rationale, local-dev quickstart, testing, a security highlights section, and deploy steps. The
+  live provisioning itself (hosting accounts, secret values, public demo URL) is the operator's manual
+  step.
 
 **Slice 5 — Tests + CI/CD.**
 
