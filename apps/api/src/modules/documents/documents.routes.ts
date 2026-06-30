@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import multer from 'multer';
 import { requireAuth } from '../../middleware/auth.js';
+import { rateLimit } from '../../middleware/rate-limit.js';
 import { env } from '../../config/env.js';
 import { httpError } from '../../lib/http-error.js';
 import * as ctrl from './documents.controller.js';
@@ -29,7 +30,12 @@ function uploadSingle(req: Request, res: Response, next: NextFunction): void {
 const router = Router();
 router.use(requireAuth);
 
-router.post('/', uploadSingle, ctrl.upload);
+router.post(
+  '/',
+  rateLimit({ bucket: 'upload', limit: env.RATE_LIMIT_UPLOAD_PER_MIN, windowSec: 60 }),
+  uploadSingle,
+  ctrl.upload,
+);
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.get);
 router.delete('/:id', ctrl.remove);

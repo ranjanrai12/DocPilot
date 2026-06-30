@@ -1,7 +1,10 @@
 import type { Prisma } from '@prisma/client';
 import type { Citation, MessageDto } from '@docpilot/shared';
 import { withWorkspace } from '../../lib/prisma.js';
-import { chatClient, type ChatTurn } from '../../lib/llm.js';
+import { chatClient, type ChatTurn, type ChatResult } from '../../lib/llm.js';
+import { estimateCostUsd } from '../../lib/pricing.js';
+import { logger } from '../../lib/logger.js';
+import { env } from '../../config/env.js';
 import { toMessageDto, loadHistory } from '../chat/chat.service.js';
 import { toolSpecs, runTool, type ToolContext } from './agent.tools.js';
 
@@ -59,54 +62,71 @@ export async function askAgentStream(
     },
   };
 
-  const result = await chatClient.agentStream(
-    { system: AGENT_SYSTEM, messages, tools: toolSpecs(), maxIterations: MAX_ITERATIONS, signal: cb.signal },
-    {
-      onToken: cb.onToken,
-      onToolUse: async (use) => {
-        cb.onToolCall({ id: use.id, name: use.name, args: use.input });
-        const executed = await runTool(use.name, use.input, ctx);
-        // Persist the tool turn (role TOOL, toolCall jsonb) for replay/history.
-        await withWorkspace(workspaceId, (tx) =>
-          tx.message.create({
-            data: {
-              conversationId,
-              role: 'TOOL',
-              content: '',
-              toolCall: {
-                name: use.name,
-                input: use.input,
-                result: executed.result,
-                isError: executed.isError,
-              } as unknown as Prisma.InputJsonValue,
-            },
-          }),
-        );
-        cb.onToolResult({ id: use.id, name: use.name, result: executed.result, isError: executed.isError });
-        return { content: executed.content, isError: executed.isError };
+  // Accumulate usage per completed model turn so it can be recorded even if the
+  // stream aborts/fails partway (tokens were still spent upstream).
+  const usage = { tokensIn: 0, tokensOut: 0 };
+  let result!: ChatResult;
+  try {
+    result = await chatClient.agentStream(
+      { system: AGENT_SYSTEM, messages, tools: toolSpecs(), maxIterations: MAX_ITERATIONS, signal: cb.signal },
+      {
+        onToken: cb.onToken,
+        onUsage: (u) => {
+          usage.tokensIn += u.tokensIn;
+          usage.tokensOut += u.tokensOut;
+        },
+        onToolUse: async (use) => {
+          cb.onToolCall({ id: use.id, name: use.name, args: use.input });
+          const executed = await runTool(use.name, use.input, ctx);
+          // Persist the tool turn (role TOOL, toolCall jsonb) for replay/history.
+          await withWorkspace(workspaceId, (tx) =>
+            tx.message.create({
+              data: {
+                conversationId,
+                role: 'TOOL',
+                content: '',
+                toolCall: {
+                  name: use.name,
+                  input: use.input,
+                  result: executed.result,
+                  isError: executed.isError,
+                } as unknown as Prisma.InputJsonValue,
+              },
+            }),
+          );
+          cb.onToolResult({ id: use.id, name: use.name, result: executed.result, isError: executed.isError });
+          return { content: executed.content, isError: executed.isError };
+        },
       },
-    },
-  );
+    );
+  } finally {
+    // Always record usage + estimated cost — runs on success AND on abort/error.
+    if (usage.tokensIn > 0 || usage.tokensOut > 0) {
+      await withWorkspace(workspaceId, (tx) =>
+        tx.usageEvent.create({
+          data: {
+            workspaceId,
+            kind: 'CHAT',
+            tokensIn: usage.tokensIn,
+            tokensOut: usage.tokensOut,
+            costUsd: estimateCostUsd(env.CHAT_MODEL, usage.tokensIn, usage.tokensOut),
+          },
+        }),
+      ).catch((err) => logger.warn({ err: err instanceof Error ? err.message : err }, 'failed to record CHAT usage'));
+    }
+  }
 
-  // Persist the final assistant turn + usage (tool-turn tokens included).
-  const assistant = await withWorkspace(workspaceId, async (tx) => {
-    const a = await tx.message.create({
+  // Persist the final assistant turn (success path — an abort/throw skips this).
+  const assistant = await withWorkspace(workspaceId, (tx) =>
+    tx.message.create({
       data: {
         conversationId,
         role: 'ASSISTANT',
         content: result.text,
         citations: citations as unknown as Prisma.InputJsonValue,
       },
-    });
-    await tx.usageEvent.create({
-      data: { workspaceId, kind: 'CHAT', tokensIn: result.tokensIn, tokensOut: result.tokensOut, costUsd: 0 },
-    });
-    return a;
-  });
+    }),
+  );
 
-  return {
-    message: toMessageDto(assistant),
-    citations,
-    usage: { tokensIn: result.tokensIn, tokensOut: result.tokensOut },
-  };
+  return { message: toMessageDto(assistant), citations, usage };
 }

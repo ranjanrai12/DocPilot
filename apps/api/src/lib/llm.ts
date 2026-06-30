@@ -152,6 +152,9 @@ export interface AgentStreamHandlers {
   // Execute one tool call and return its result. The caller validates args,
   // runs the (workspace-scoped) side effect, and returns the content string.
   onToolUse: (use: ToolUse) => Promise<ToolOutcome>;
+  // Reports token usage for each COMPLETED model turn (delta, not cumulative).
+  // Lets the caller record usage even if the overall call later aborts/throws.
+  onUsage?: (usage: { tokensIn: number; tokensOut: number }) => void;
 }
 
 export interface ChatClient {
@@ -231,6 +234,7 @@ class AnthropicChat implements ChatClient {
       const msg = await s.finalMessage();
       tokensIn += msg.usage.input_tokens;
       tokensOut += msg.usage.output_tokens;
+      handlers.onUsage?.({ tokensIn: msg.usage.input_tokens, tokensOut: msg.usage.output_tokens });
       finalText += msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
 
       const toolUses = msg.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
@@ -265,6 +269,7 @@ class AnthropicChat implements ChatClient {
     const finalMsg = await finalStream.finalMessage();
     tokensIn += finalMsg.usage.input_tokens;
     tokensOut += finalMsg.usage.output_tokens;
+    handlers.onUsage?.({ tokensIn: finalMsg.usage.input_tokens, tokensOut: finalMsg.usage.output_tokens });
     finalText += finalMsg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
 
     return { text: finalText, tokensIn, tokensOut };
@@ -328,7 +333,9 @@ class FakeChat implements ChatClient {
       handlers.onToken(t);
       await sleep(20);
     }
-    return { text: answer, tokensIn, tokensOut: Math.ceil(answer.length / 4) };
+    const tokensOut = Math.ceil(answer.length / 4);
+    handlers.onUsage?.({ tokensIn, tokensOut });
+    return { text: answer, tokensIn, tokensOut };
   }
 }
 

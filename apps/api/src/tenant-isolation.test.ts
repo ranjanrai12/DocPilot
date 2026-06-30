@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { prisma, withWorkspace, bypassRls } from './lib/prisma.js';
 import { searchWorkspaceChunks, loadHistory } from './modules/chat/chat.service.js';
+import { getUsageSummary } from './modules/usage/usage.service.js';
 
 // Multi-tenant isolation — the project's #1 non-negotiable rule (CLAUDE.md,
 // docs/02 §7). This proves the RLS *backstop*: even a query that omits the
@@ -67,11 +68,17 @@ beforeAll(async () => {
       wsB,
       vecLiteral,
     );
+
+    // Usage events in both workspaces, to prove the /api/usage aggregation
+    // (groupBy + _sum) can't sum across tenants.
+    await tx.usageEvent.create({ data: { workspaceId: wsA, kind: 'CHAT', tokensIn: 100, tokensOut: 50, costUsd: 0.01 } });
+    await tx.usageEvent.create({ data: { workspaceId: wsB, kind: 'CHAT', tokensIn: 999, tokensOut: 999, costUsd: 9.99 } });
   });
 });
 
 afterAll(async () => {
   await bypassRls(async (tx) => {
+    await tx.usageEvent.deleteMany({ where: { workspaceId: { in: [wsA, wsB] } } });
     await tx.conversation.deleteMany({ where: { workspaceId: { in: [wsA, wsB] } } }); // cascades messages
     await tx.document.deleteMany({ where: { workspaceId: { in: [wsA, wsB] } } });
     await tx.user.deleteMany({ where: { workspaceId: { in: [wsA, wsB] } } });
@@ -154,5 +161,13 @@ describe('multi-tenant isolation (RLS backstop)', () => {
   it("agent loadHistory scoped to A returns nothing for B's conversation", async () => {
     const history = await loadHistory(wsA, convoB, 20);
     expect(history).toHaveLength(0);
+  });
+
+  it('usage summary (groupBy + _sum) scoped to A excludes B usage events', async () => {
+    const summary = await getUsageSummary(wsA);
+    // A seeded 100/50; B's 999/999 must not bleed into the aggregate.
+    expect(summary.totalTokensIn).toBe(100);
+    expect(summary.totalTokensOut).toBe(50);
+    expect(summary.totalCostUsd).toBeCloseTo(0.01, 6);
   });
 });

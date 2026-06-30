@@ -55,6 +55,24 @@ export interface DocumentListResponse {
 
 export type MsgRole = 'USER' | 'ASSISTANT' | 'TOOL';
 
+export type UsageKind = 'EMBEDDING' | 'CHAT';
+
+/** Per-workspace usage totals, broken down by event kind (docs/05 Phase 6). */
+export interface UsageByKind {
+  kind: UsageKind;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+}
+
+/** Response of GET /api/usage. */
+export interface UsageSummaryResponse {
+  totalCostUsd: number;
+  totalTokensIn: number;
+  totalTokensOut: number;
+  byKind: UsageByKind[];
+}
+
 /** A source reference attached to an assistant answer (docs/04). */
 export interface Citation {
   documentId: string;

@@ -2,6 +2,34 @@
 
 Short notes on non-obvious choices. Great interview fuel (see roadmap §"working rhythm").
 
+## Phase 6 — Production hardening (in progress)
+
+Built in small, independently-shippable slices (one branch + `--no-ff` merge each).
+
+**Slice 1 — Observability.** Single Pino logger (`lib/logger`) for API + worker. Dev pretty-prints via
+`pino-pretty` (a devDependency, only referenced when `NODE_ENV=development`, so the prod bundle stays
+JSON-only); secrets (auth header, cookies, tokens, API keys) are redacted. `pino-http` adds a request
+id + `req.log` (health checks excluded; 5xx→error, 4xx→warn). `GET /api/health` now returns **503**
+(`status: "degraded"`) when the DB is unreachable so a load balancer pulls the instance — Redis is
+reported but non-fatal (the API still serves auth/chat; only ingestion needs Redis). The error handler
+logs operational errors at warn and unexpected errors with full detail server-side, still returning the
+generic `INTERNAL` shape (no internals leaked).
+
+**Slice 2 — Rate limiting + usage/cost tracking.**
+- **Per-workspace rate limits** (`middleware/rate-limit`): Redis fixed-window (`INCR` + `EXPIRE`) keyed
+  by `ratelimit:<bucket>:<workspaceId>`, so the count is shared across API instances. Applied to the
+  two expensive endpoints — chat (`RATE_LIMIT_CHAT_PER_MIN`, default 30) and upload
+  (`RATE_LIMIT_UPLOAD_PER_MIN`, default 20). **Fails open** if Redis is down/unset — a rate limiter must
+  never be a single point of failure. 429 carries a `Retry-After` header + the standard error shape.
+- **Cost estimation** (`lib/pricing`): USD-per-MTok table keyed by model; unknown models (the `fake`
+  dev drivers) cost 0. Both the `EMBEDDING` and `CHAT` `UsageEvent`s now carry an estimated `costUsd`
+  (was hard-coded 0). Estimates only — the provider invoice is the billing source of truth.
+- **Abort-safe usage** (closes the Phase 5 review gap): `ChatClient.agentStream` reports per-turn token
+  usage via an `onUsage` callback; `agent.service` accumulates it and writes the `CHAT` `UsageEvent` in a
+  `finally`, so tokens spent before a client disconnect/Stop are still recorded.
+- **`GET /api/usage`** (`modules/usage`): tenant-scoped `groupBy` over `UsageEvent` → per-kind + total
+  tokens and cost. Makes the cost tracking demoable.
+
 ## Phase 5 — Agentic tool-calling
 
 **The chat answer flow is now an agent loop**, not fixed retrieve-then-answer. `modules/agent`

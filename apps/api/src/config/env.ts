@@ -57,6 +57,11 @@ const EnvSchema = z.object({
 
   // Uploads
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(25),
+
+  // Per-workspace rate limits (fixed 60s window, Redis-backed). Fail open if
+  // Redis is unavailable so a Redis blip can't take the API down.
+  RATE_LIMIT_CHAT_PER_MIN: z.coerce.number().int().positive().default(30),
+  RATE_LIMIT_UPLOAD_PER_MIN: z.coerce.number().int().positive().default(20),
 }).superRefine((val, ctx) => {
   // Conditionally-required vars — fail at startup, not on first use.
   if (val.STORAGE_DRIVER === 's3') {
