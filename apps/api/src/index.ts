@@ -11,6 +11,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import documentRoutes from './modules/documents/documents.routes.js';
 import conversationRoutes from './modules/chat/chat.routes.js';
 import usageRoutes from './modules/usage/usage.routes.js';
+import memberRoutes from './modules/members/members.routes.js';
 import { errorHandler } from './middleware/errors.js';
 
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/usage', usageRoutes);
+app.use('/api/members', memberRoutes);
 
 // Liveness/readiness probe. The database is critical → DB down returns 503 so a
 // load balancer pulls the instance. Redis being down is reported but does not

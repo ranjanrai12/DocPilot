@@ -15,6 +15,20 @@ reported but non-fatal (the API still serves auth/chat; only ingestion needs Red
 logs operational errors at warn and unexpected errors with full detail server-side, still returning the
 generic `INTERNAL` shape (no internals leaked).
 
+**Slice 3 — RBAC + team management** (`modules/members`). The `ADMIN`/`MEMBER` roles existed since
+Phase 1 but weren't enforced; this wires them up.
+- `GET /api/members` — team roster, visible to any authenticated member. `POST` (invite),
+  `PATCH /:id/role`, `DELETE /:id` are **admin-only** (`requireAdmin` after `requireAuth`).
+- **Invite** (no email provider in MVP): admin creates a user in their workspace; the server generates
+  a temporary password (bcrypt-hashed, cost 12) and returns it **once** for the admin to share — the
+  production step is emailing a one-time set-password link (same honest-mock posture as the agent's
+  email tool). Globally-unique email clash → 409.
+- **Lockout guards:** the last admin can't be demoted or removed; you can't remove your own account.
+- **Removal** deletes the member's conversations (messages cascade) before the `User` delete so the FK
+  succeeds — all tenant-scoped in one `withWorkspace` transaction.
+- All queries are tenant-scoped (explicit `workspaceId` + RLS); cross-tenant member access returns 404.
+  New isolation tests prove an admin in A can't list/re-role/remove a user in B.
+
 **Slice 2 — Rate limiting + usage/cost tracking.**
 - **Per-workspace rate limits** (`middleware/rate-limit`): Redis fixed-window (`INCR` + `EXPIRE`) keyed
   by `ratelimit:<bucket>:<workspaceId>`, so the count is shared across API instances. Applied to the

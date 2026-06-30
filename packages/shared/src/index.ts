@@ -34,6 +34,18 @@ export interface RefreshResponse {
   accessToken: string;
 }
 
+/** GET /api/members — workspace team roster (admin + members). */
+export interface MembersListResponse {
+  members: UserPublic[];
+}
+
+/** POST /api/members — invite a teammate. tempPassword is returned ONCE so the
+ *  admin can share it (no email provider wired in the MVP). */
+export interface InviteMemberResponse {
+  user: UserPublic;
+  tempPassword: string;
+}
+
 export type DocStatus = 'PROCESSING' | 'READY' | 'FAILED';
 
 /** Public document shape returned by the documents API (omits internal storageKey). */

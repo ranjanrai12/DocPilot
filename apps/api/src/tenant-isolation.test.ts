@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { prisma, withWorkspace, bypassRls } from './lib/prisma.js';
 import { searchWorkspaceChunks, loadHistory } from './modules/chat/chat.service.js';
 import { getUsageSummary } from './modules/usage/usage.service.js';
+import { listMembers, updateMemberRole, removeMember } from './modules/members/members.service.js';
 
 // Multi-tenant isolation — the project's #1 non-negotiable rule (CLAUDE.md,
 // docs/02 §7). This proves the RLS *backstop*: even a query that omits the
@@ -17,6 +18,8 @@ const tag = randomUUID();
 
 let wsA = '';
 let wsB = '';
+let userA = '';
+let userB = '';
 let docA = '';
 let docB = '';
 let convoA = '';
@@ -40,6 +43,8 @@ beforeAll(async () => {
     const ub = await tx.user.create({
       data: { email: `b-${tag}@example.test`, passwordHash: 'x', workspaceId: wsB, role: 'ADMIN' },
     });
+    userA = ua.id;
+    userB = ub.id;
 
     const da = await tx.document.create({
       data: { workspaceId: wsA, filename: 'a.pdf', storageKey: `seed/${tag}/a`, mimeType: 'application/pdf' },
@@ -169,5 +174,20 @@ describe('multi-tenant isolation (RLS backstop)', () => {
     expect(summary.totalTokensIn).toBe(100);
     expect(summary.totalTokensOut).toBe(50);
     expect(summary.totalCostUsd).toBeCloseTo(0.01, 6);
+  });
+
+  it('member roster scoped to A excludes B users', async () => {
+    const members = await listMembers(wsA);
+    const ids = members.map((m) => m.id);
+    expect(ids).toContain(userA);
+    expect(ids).not.toContain(userB);
+  });
+
+  it("admin in A cannot change role of B's user (404)", async () => {
+    await expect(updateMemberRole(wsA, userB, 'MEMBER')).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("admin in A cannot remove B's user (404)", async () => {
+    await expect(removeMember(wsA, userA, userB)).rejects.toMatchObject({ status: 404 });
   });
 });
