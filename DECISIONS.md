@@ -6,6 +6,24 @@ Short notes on non-obvious choices. Great interview fuel (see roadmap §"working
 
 Built in small, independently-shippable slices (one branch + `--no-ff` merge each).
 
+**Slice 5 — Tests + CI/CD.**
+
+- **Unit suite** (26 tests, no external services): `pricing`, `chunk`, `extract` mime allow-list, `jwt`
+  round-trip/tamper, `FakeChat` agent loop (tool call + streaming + usage), `runTool` validation +
+  mocked tools, and `buildCitations`/escaping. Runs anywhere — the key enabler is a vitest setup file
+  (`src/test/setup.ts`) that loads `.env` then fills any missing required vars with dummies, so importing
+  modules that call `config/env` (which `process.exit(1)`s on missing vars) doesn't abort CI.
+- **Unit vs integration split.** `vitest.config.ts` (default) runs `*.test.ts` and **excludes**
+  `*.integration.test.ts`; `vitest.integration.config.ts` (`pnpm test:integration`) runs the
+  Postgres-backed `tenant-isolation.integration.test.ts` (RLS can't be mocked — real DB, least-privilege
+  role). CI runs only the unit lane.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`): install → `prisma generate` → format check → lint
+  (stub) → typecheck → build → unit tests, on push to main + PRs. Integration tests need a provisioned
+  DB (pgvector + RLS migration + app role), so they're out of the lightweight CI lane for now.
+- **Repo-wide Prettier normalization** so `format:check` can be enforced going forward (mechanical, no
+  logic change). ESLint is still the deferred no-op `lint` stub — wiring up a real ESLint config is a
+  follow-up so it doesn't balloon this slice.
+
 **Slice 1 — Observability.** Single Pino logger (`lib/logger`) for API + worker. Dev pretty-prints via
 `pino-pretty` (a devDependency, only referenced when `NODE_ENV=development`, so the prod bundle stays
 JSON-only); secrets (auth header, cookies, tokens, API keys) are redacted. `pino-http` adds a request

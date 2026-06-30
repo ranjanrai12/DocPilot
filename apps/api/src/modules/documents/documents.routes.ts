@@ -18,7 +18,9 @@ function uploadSingle(req: Request, res: Response, next: NextFunction): void {
   multerUpload.single('file')(req, res, (err: unknown) => {
     if (err) {
       if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-        return next(httpError(`File exceeds the ${env.MAX_UPLOAD_MB}MB limit.`, 413, 'PAYLOAD_TOO_LARGE'));
+        return next(
+          httpError(`File exceeds the ${env.MAX_UPLOAD_MB}MB limit.`, 413, 'PAYLOAD_TOO_LARGE'),
+        );
       }
       const message = err instanceof Error ? err.message : 'Upload failed.';
       return next(httpError(message, 400, 'VALIDATION_ERROR'));

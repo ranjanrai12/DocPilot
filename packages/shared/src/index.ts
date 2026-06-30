@@ -148,5 +148,10 @@ export type ChatStreamEvent =
   | { type: 'token'; value: string }
   | { type: 'tool_call'; id: string; name: string; args: unknown }
   | { type: 'tool_result'; id: string; name: string; result: unknown; isError: boolean }
-  | { type: 'done'; messageId: string; citations: Citation[]; usage: { tokensIn: number; tokensOut: number } }
+  | {
+      type: 'done';
+      messageId: string;
+      citations: Citation[];
+      usage: { tokensIn: number; tokensOut: number };
+    }
   | { type: 'error'; message: string };

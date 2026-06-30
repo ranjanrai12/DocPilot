@@ -15,7 +15,14 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 // A tool the agent invoked during the live stream (done flips on tool_result).
-type ToolActivity = { id: string; name: string; args: unknown; result?: unknown; isError?: boolean; done: boolean };
+type ToolActivity = {
+  id: string;
+  name: string;
+  args: unknown;
+  result?: unknown;
+  isError?: boolean;
+  done: boolean;
+};
 type Streaming = {
   id: string;
   question: string;
@@ -79,7 +86,12 @@ export default function ChatThread({
               setStreaming((s) => (s ? { ...s, answer: s.answer + ev.value } : s));
             } else if (ev.type === 'tool_call') {
               setStreaming((s) =>
-                s ? { ...s, tools: [...s.tools, { id: ev.id, name: ev.name, args: ev.args, done: false }] } : s,
+                s
+                  ? {
+                      ...s,
+                      tools: [...s.tools, { id: ev.id, name: ev.name, args: ev.args, done: false }],
+                    }
+                  : s,
               );
             } else if (ev.type === 'tool_result') {
               setStreaming((s) =>
@@ -87,7 +99,9 @@ export default function ChatThread({
                   ? {
                       ...s,
                       tools: s.tools.map((t) =>
-                        t.id === ev.id ? { ...t, result: ev.result, isError: ev.isError, done: true } : t,
+                        t.id === ev.id
+                          ? { ...t, result: ev.result, isError: ev.isError, done: true }
+                          : t,
                       ),
                     }
                   : s,
@@ -132,7 +146,15 @@ export default function ChatThread({
         {showEmptyState ? (
           <div className="h-full flex flex-col items-center justify-center text-center">
             <span className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
-              <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-6 w-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
             </span>
@@ -158,7 +180,11 @@ export default function ChatThread({
               m.role === 'TOOL' ? (
                 <ToolChip key={m.id} tool={toolFromRecord(m.toolCall)} />
               ) : (
-                <Bubble key={m.id} role={m.role === 'USER' ? 'user' : 'assistant'} citations={m.citations ?? undefined}>
+                <Bubble
+                  key={m.id}
+                  role={m.role === 'USER' ? 'user' : 'assistant'}
+                  citations={m.citations ?? undefined}
+                >
                   {m.content}
                 </Bubble>
               ),
@@ -170,7 +196,10 @@ export default function ChatThread({
                   <ToolChip key={t.id} tool={t} />
                 ))}
                 {(streaming.answer || streaming.tools.length === 0) && (
-                  <Bubble role="assistant" citations={streaming.citations.length ? streaming.citations : undefined}>
+                  <Bubble
+                    role="assistant"
+                    citations={streaming.citations.length ? streaming.citations : undefined}
+                  >
                     {streaming.answer ? (
                       <span>
                         {streaming.answer}
@@ -223,7 +252,15 @@ export default function ChatThread({
               className="shrink-0 inline-flex items-center justify-center rounded-xl bg-indigo-600 text-white px-4 py-2.5 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
               title="Send"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />
               </svg>
             </button>
@@ -268,7 +305,15 @@ function Citations({ citations }: { citations: Citation[] }) {
           className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-600 rounded-md px-2 py-0.5"
           title={c.filename}
         >
-          <svg viewBox="0 0 24 24" className="h-3 w-3 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3 w-3 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <path d="M14 2v6h6" />
           </svg>
@@ -335,7 +380,15 @@ function ToolChip({ tool }: { tool: ToolActivity }) {
         title={tool.name}
       >
         {tool.done ? (
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             {tool.isError ? <path d="M18 6 6 18M6 6l12 12" /> : <path d="M20 6 9 17l-5-5" />}
           </svg>
         ) : (

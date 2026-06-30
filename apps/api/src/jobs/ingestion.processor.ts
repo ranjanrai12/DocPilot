@@ -95,7 +95,10 @@ export async function processIngestion(data: IngestionJobData): Promise<void> {
     // Terminal failures (bad/empty/unsupported file) won't succeed on retry —
     // mark them UnrecoverableError so BullMQ stops instead of burning attempts.
     // Other errors (storage/embedding blips) stay retryable.
-    if (err instanceof UnrecoverableError || /no extractable text|unsupported (mime|file)/i.test(raw)) {
+    if (
+      err instanceof UnrecoverableError ||
+      /no extractable text|unsupported (mime|file)/i.test(raw)
+    ) {
       throw new UnrecoverableError(friendlyError(raw));
     }
     throw err; // transient — surface to BullMQ for retry/visibility

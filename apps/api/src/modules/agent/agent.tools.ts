@@ -56,7 +56,11 @@ const searchDocuments: AgentTool = {
     const chunks = await searchWorkspaceChunks(ctx.workspaceId, vectors[0], env.RAG_TOP_K);
 
     if (chunks.length === 0) {
-      return { content: 'No matching passages found in the documents.', result: { count: 0, matches: [] }, isError: false };
+      return {
+        content: 'No matching passages found in the documents.',
+        result: { count: 0, matches: [] },
+        isError: false,
+      };
     }
 
     // Tagged + escaped so poisoned document text can't break out of the
@@ -103,7 +107,13 @@ const emailSummary: AgentTool = {
     // MVP: no email provider wired yet — log the intended action (clearly a
     // mock, not a silent no-op) so the demo is honest and auditable.
     logger.info(
-      { tool: 'email_summary', mock: true, workspaceId: ctx.workspaceId, recipient, chars: summary.length },
+      {
+        tool: 'email_summary',
+        mock: true,
+        workspaceId: ctx.workspaceId,
+        recipient,
+        chars: summary.length,
+      },
       'agent tool (mock): email_summary',
     );
     return {
@@ -136,7 +146,14 @@ const createTicket: AgentTool = {
     const { title, description } = CreateTicketInput.parse(input);
     const ticketId = `TICKET-${randomUUID().slice(0, 8).toUpperCase()}`;
     logger.info(
-      { tool: 'create_ticket', mock: true, workspaceId: ctx.workspaceId, ticketId, title, chars: description.length },
+      {
+        tool: 'create_ticket',
+        mock: true,
+        workspaceId: ctx.workspaceId,
+        ticketId,
+        title,
+        chars: description.length,
+      },
       'agent tool (mock): create_ticket',
     );
     return {
@@ -163,10 +180,18 @@ export function toolSpecs(): ToolSpec[] {
  * returned as tool errors (isError) rather than thrown, so the model can
  * recover instead of the whole turn failing.
  */
-export async function runTool(name: string, input: unknown, ctx: ToolContext): Promise<ExecutedTool> {
+export async function runTool(
+  name: string,
+  input: unknown,
+  ctx: ToolContext,
+): Promise<ExecutedTool> {
   const tool = REGISTRY[name];
   if (!tool) {
-    return { content: `Unknown tool: ${name}.`, result: { error: 'unknown_tool', name }, isError: true };
+    return {
+      content: `Unknown tool: ${name}.`,
+      result: { error: 'unknown_tool', name },
+      isError: true,
+    };
   }
   const parsed = tool.schema.safeParse(input);
   if (!parsed.success) {

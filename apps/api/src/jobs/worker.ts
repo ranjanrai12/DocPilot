@@ -22,7 +22,10 @@ worker.on('completed', (job) => {
 });
 
 worker.on('failed', (job, err) => {
-  log.error({ jobId: job?.id, documentId: job?.data.documentId, err: err.message }, 'ingestion failed');
+  log.error(
+    { jobId: job?.id, documentId: job?.data.documentId, err: err.message },
+    'ingestion failed',
+  );
 });
 
 log.info('👷 Ingestion worker started — waiting for jobs...');

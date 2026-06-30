@@ -34,13 +34,22 @@ export function rateLimit({ bucket, limit, windowSec, keyOn = 'workspace' }: Rat
         const ttl = await redis.ttl(key);
         const retryAfter = ttl > 0 ? ttl : windowSec;
         res.setHeader('Retry-After', String(retryAfter));
-        next(httpError('Rate limit exceeded. Please slow down and try again shortly.', 429, 'RATE_LIMITED'));
+        next(
+          httpError(
+            'Rate limit exceeded. Please slow down and try again shortly.',
+            429,
+            'RATE_LIMITED',
+          ),
+        );
         return;
       }
       next();
     } catch (err) {
       // Redis error → fail open so a transient blip can't take the endpoint down.
-      logger.warn({ err: err instanceof Error ? err.message : err, bucket }, 'rate limiter unavailable — allowing request');
+      logger.warn(
+        { err: err instanceof Error ? err.message : err, bucket },
+        'rate limiter unavailable — allowing request',
+      );
       next();
     }
   };

@@ -24,7 +24,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     req.user = verifyAccessToken(token);
     next();
   } catch {
-    res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Invalid or expired access token.' } });
+    res
+      .status(401)
+      .json({ error: { code: 'UNAUTHENTICATED', message: 'Invalid or expired access token.' } });
   }
 }
 

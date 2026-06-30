@@ -28,19 +28,37 @@ export default function DashboardPage() {
             }`}
             title="Documents & chats"
           >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
           </button>
           <span className="h-7 w-7 shrink-0 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm shadow-indigo-600/30">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 text-white"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </span>
           <span className="text-[15px] font-semibold tracking-tight truncate">DocPilot</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="hidden sm:block text-sm text-slate-500 truncate max-w-[180px]">{user?.email}</span>
+          <span className="hidden sm:block text-sm text-slate-500 truncate max-w-[180px]">
+            {user?.email}
+          </span>
           <button
             onClick={logout}
             className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
@@ -60,7 +78,9 @@ export default function DashboardPage() {
         />
 
         {/* Mobile menu (documents + conversations stacked) */}
-        <div className={`flex-1 min-h-0 flex-col lg:hidden ${mobileView === 'menu' ? 'flex' : 'hidden'}`}>
+        <div
+          className={`flex-1 min-h-0 flex-col lg:hidden ${mobileView === 'menu' ? 'flex' : 'hidden'}`}
+        >
           <DocumentsPanel className="flex flex-1 min-h-0 border-b border-slate-200" />
           <ConversationsPanel
             selectedId={selectedId}

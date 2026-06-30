@@ -159,7 +159,11 @@ export function buildCitations(chunks: RetrievedChunk[]): Citation[] {
   for (const c of chunks) {
     if (byDoc.has(c.documentId)) continue;
     const page = pageOf(c.metadata);
-    byDoc.set(c.documentId, { documentId: c.documentId, filename: c.filename, ...(page ? { page } : {}) });
+    byDoc.set(c.documentId, {
+      documentId: c.documentId,
+      filename: c.filename,
+      ...(page ? { page } : {}),
+    });
   }
   return [...byDoc.values()];
 }
@@ -185,7 +189,8 @@ export async function loadHistory(
       take: limit,
     }),
   );
-  return recent
-    .reverse()
-    .map((m) => ({ role: m.role === 'ASSISTANT' ? 'assistant' : ('user' as const), content: m.content }));
+  return recent.reverse().map((m) => ({
+    role: m.role === 'ASSISTANT' ? 'assistant' : ('user' as const),
+    content: m.content,
+  }));
 }

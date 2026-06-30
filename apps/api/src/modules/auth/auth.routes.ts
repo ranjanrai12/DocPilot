@@ -10,7 +10,12 @@ const router = Router();
 
 // Per-IP rate limit on the unauthenticated credential endpoints (brute-force /
 // credential-stuffing mitigation). Keyed by IP since there's no workspace yet.
-const authLimiter = rateLimit({ bucket: 'auth', limit: env.RATE_LIMIT_AUTH_PER_MIN, windowSec: 60, keyOn: 'ip' });
+const authLimiter = rateLimit({
+  bucket: 'auth',
+  limit: env.RATE_LIMIT_AUTH_PER_MIN,
+  windowSec: 60,
+  keyOn: 'ip',
+});
 
 router.post('/signup', authLimiter, validate(SignupSchema), ctrl.signup);
 router.post('/login', authLimiter, validate(LoginSchema), ctrl.login);

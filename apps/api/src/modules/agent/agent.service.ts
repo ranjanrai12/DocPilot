@@ -38,7 +38,11 @@ export async function askAgentStream(
   conversationId: string,
   question: string,
   cb: AgentCallbacks,
-): Promise<{ message: MessageDto; citations: Citation[]; usage: { tokensIn: number; tokensOut: number } }> {
+): Promise<{
+  message: MessageDto;
+  citations: Citation[];
+  usage: { tokensIn: number; tokensOut: number };
+}> {
   const history = await loadHistory(workspaceId, conversationId, HISTORY_LIMIT);
   const messages: ChatTurn[] = [...history, { role: 'user', content: question }];
 
@@ -68,7 +72,13 @@ export async function askAgentStream(
   let result!: ChatResult;
   try {
     result = await chatClient.agentStream(
-      { system: AGENT_SYSTEM, messages, tools: toolSpecs(), maxIterations: MAX_ITERATIONS, signal: cb.signal },
+      {
+        system: AGENT_SYSTEM,
+        messages,
+        tools: toolSpecs(),
+        maxIterations: MAX_ITERATIONS,
+        signal: cb.signal,
+      },
       {
         onToken: cb.onToken,
         onUsage: (u) => {
@@ -94,7 +104,12 @@ export async function askAgentStream(
               },
             }),
           );
-          cb.onToolResult({ id: use.id, name: use.name, result: executed.result, isError: executed.isError });
+          cb.onToolResult({
+            id: use.id,
+            name: use.name,
+            result: executed.result,
+            isError: executed.isError,
+          });
           return { content: executed.content, isError: executed.isError };
         },
       },
@@ -112,7 +127,12 @@ export async function askAgentStream(
             costUsd: estimateCostUsd(env.CHAT_MODEL, usage.tokensIn, usage.tokensOut),
           },
         }),
-      ).catch((err) => logger.warn({ err: err instanceof Error ? err.message : err }, 'failed to record CHAT usage'));
+      ).catch((err) =>
+        logger.warn(
+          { err: err instanceof Error ? err.message : err },
+          'failed to record CHAT usage',
+        ),
+      );
     }
   }
 

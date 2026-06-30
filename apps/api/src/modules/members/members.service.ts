@@ -52,7 +52,11 @@ export async function inviteMember(
     // Email is globally unique; a clash (this or another workspace) is a P2002.
     // Use a neutral message so the 409 isn't a cross-tenant existence oracle.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      throw httpError('This email address can’t be invited (it may already be in use).', 409, 'CONFLICT');
+      throw httpError(
+        'This email address can’t be invited (it may already be in use).',
+        409,
+        'CONFLICT',
+      );
     }
     throw err;
   }
