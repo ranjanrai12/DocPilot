@@ -47,20 +47,38 @@ beforeAll(async () => {
     userB = ub.id;
 
     const da = await tx.document.create({
-      data: { workspaceId: wsA, filename: 'a.pdf', storageKey: `seed/${tag}/a`, mimeType: 'application/pdf' },
+      data: {
+        workspaceId: wsA,
+        filename: 'a.pdf',
+        storageKey: `seed/${tag}/a`,
+        mimeType: 'application/pdf',
+      },
     });
     const db = await tx.document.create({
-      data: { workspaceId: wsB, filename: 'b.pdf', storageKey: `seed/${tag}/b`, mimeType: 'application/pdf' },
+      data: {
+        workspaceId: wsB,
+        filename: 'b.pdf',
+        storageKey: `seed/${tag}/b`,
+        mimeType: 'application/pdf',
+      },
     });
     docA = da.id;
     docB = db.id;
 
-    const ca = await tx.conversation.create({ data: { workspaceId: wsA, userId: ua.id, title: `convo-A-${tag}` } });
-    const cb = await tx.conversation.create({ data: { workspaceId: wsB, userId: ub.id, title: `convo-B-${tag}` } });
+    const ca = await tx.conversation.create({
+      data: { workspaceId: wsA, userId: ua.id, title: `convo-A-${tag}` },
+    });
+    const cb = await tx.conversation.create({
+      data: { workspaceId: wsB, userId: ub.id, title: `convo-B-${tag}` },
+    });
     convoA = ca.id;
     convoB = cb.id;
-    await tx.message.create({ data: { conversationId: convoA, role: 'USER', content: 'message in A' } });
-    await tx.message.create({ data: { conversationId: convoB, role: 'USER', content: 'message in B' } });
+    await tx.message.create({
+      data: { conversationId: convoA, role: 'USER', content: 'message in A' },
+    });
+    await tx.message.create({
+      data: { conversationId: convoB, role: 'USER', content: 'message in B' },
+    });
 
     // B gets one embedded chunk (raw SQL — Prisma can't bind vector). Cascades
     // away when docB is deleted in afterAll. Lets us prove the agent's vector
@@ -76,8 +94,12 @@ beforeAll(async () => {
 
     // Usage events in both workspaces, to prove the /api/usage aggregation
     // (groupBy + _sum) can't sum across tenants.
-    await tx.usageEvent.create({ data: { workspaceId: wsA, kind: 'CHAT', tokensIn: 100, tokensOut: 50, costUsd: 0.01 } });
-    await tx.usageEvent.create({ data: { workspaceId: wsB, kind: 'CHAT', tokensIn: 999, tokensOut: 999, costUsd: 9.99 } });
+    await tx.usageEvent.create({
+      data: { workspaceId: wsA, kind: 'CHAT', tokensIn: 100, tokensOut: 50, costUsd: 0.01 },
+    });
+    await tx.usageEvent.create({
+      data: { workspaceId: wsB, kind: 'CHAT', tokensIn: 999, tokensOut: 999, costUsd: 9.99 },
+    });
   });
 });
 
@@ -148,7 +170,9 @@ describe('multi-tenant isolation (RLS backstop)', () => {
   it("scoped to A: WITH CHECK rejects inserting a Message into B's conversation", async () => {
     await expect(
       withWorkspace(wsA, (tx) =>
-        tx.message.create({ data: { conversationId: convoB, role: 'USER', content: 'cross-tenant leak' } }),
+        tx.message.create({
+          data: { conversationId: convoB, role: 'USER', content: 'cross-tenant leak' },
+        }),
       ),
     ).rejects.toThrow();
   });
@@ -185,7 +209,9 @@ describe('multi-tenant isolation (RLS backstop)', () => {
 
   it("admin in A cannot change role of B's user (404)", async () => {
     // Caller is A's admin (passes the freshness check); target is B's user.
-    await expect(updateMemberRole(wsA, userA, userB, 'MEMBER')).rejects.toMatchObject({ status: 404 });
+    await expect(updateMemberRole(wsA, userA, userB, 'MEMBER')).rejects.toMatchObject({
+      status: 404,
+    });
   });
 
   it("admin in A cannot remove B's user (404)", async () => {
