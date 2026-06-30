@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { UnrecoverableError } from 'bullmq';
 import { withWorkspace } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
+import { estimateCostUsd } from '../lib/pricing.js';
+import { env } from '../config/env.js';
 import { storage } from '../lib/storage.js';
 import { embedder } from '../lib/llm.js';
 import { extractText } from './extract.js';
@@ -69,9 +71,15 @@ export async function processIngestion(data: IngestionJobData): Promise<void> {
         data: { status: 'READY', error: null },
       });
 
-      // Cost/usage accounting hook (full reporting lands in Phase 6).
+      // Usage + cost accounting (Phase 6). Cost is estimated from the model price table.
       await tx.usageEvent.create({
-        data: { workspaceId, kind: 'EMBEDDING', tokensIn: tokens, tokensOut: 0, costUsd: 0 },
+        data: {
+          workspaceId,
+          kind: 'EMBEDDING',
+          tokensIn: tokens,
+          tokensOut: 0,
+          costUsd: estimateCostUsd(env.EMBEDDING_MODEL, tokens, 0),
+        },
       });
     });
   } catch (err) {
