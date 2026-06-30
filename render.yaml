@@ -1,0 +1,95 @@
+# Render Blueprint — deploys the three runtime pieces of DocPilot:
+#   • docpilot-api    : Express API (web service)            -> node dist/index.js
+#   • docpilot-worker : BullMQ ingestion worker (background) -> node dist/jobs/worker.js
+#   • docpilot-web    : React SPA (static site)              -> apps/web/dist
+#
+# Managed Postgres (pgvector) and Redis are reused from the existing providers
+# (Supabase + Upstash/Redis Cloud) via env vars rather than Render-managed
+# instances — Supabase already has pgvector, RLS, and the least-privilege
+# `docpilot_app` role set up (see scripts/setup-app-role.mjs). If you instead
+# want Render-managed Postgres, add a `databases:` block and enable pgvector
+# (CREATE EXTENSION vector) — note the migrations expect an `extensions` schema
+# (see DECISIONS.md, Phase 2).
+#
+# Secrets (sync:false) are set ONCE in the Render dashboard, never committed.
+# After the first deploy, fill the two cross-references:
+#   • docpilot-api  WEB_ORIGIN       = the docpilot-web URL
+#   • docpilot-web  VITE_API_BASE_URL = the docpilot-api URL
+
+envVarGroups:
+  - name: docpilot-shared
+    envVars:
+      - key: DATABASE_URL # Supabase (migrations run as the owner role)
+        sync: false
+      - key: APP_DATABASE_URL # least-privilege docpilot_app role (RLS enforced)
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: STORAGE_ENDPOINT # R2/S3 endpoint
+        sync: false
+      - key: STORAGE_BUCKET
+        sync: false
+      - key: STORAGE_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SECRET_KEY
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+
+services:
+  - type: web
+    name: docpilot-api
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter api db:generate && pnpm --filter api build
+    startCommand: pnpm --filter api start
+    # Run migrations before each release (never auto-migrate at app boot).
+    preDeployCommand: pnpm --filter api db:migrate:prod
+    healthCheckPath: /api/health
+    envVars:
+      - fromGroup: docpilot-shared
+      - key: NODE_ENV
+        value: production
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN # set to the docpilot-web URL after first deploy
+        sync: false
+
+  - type: worker
+    name: docpilot-worker
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter api db:generate && pnpm --filter api build
+    startCommand: pnpm --filter api worker:start
+    envVars:
+      - fromGroup: docpilot-shared
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: docpilot-web
+    runtime: static
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_BASE_URL # set to the docpilot-api URL after first deploy
+        sync: false
+    routes:
+      # SPA fallback — serve index.html for client-side routes.
+      - type: rewrite
+        source: /*
+        destination: /index.html
