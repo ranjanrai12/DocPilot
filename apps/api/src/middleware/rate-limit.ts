@@ -4,24 +4,28 @@ import { httpError } from '../lib/http-error.js';
 import { logger } from '../lib/logger.js';
 
 interface RateLimitOptions {
-  bucket: string; // namespace, e.g. "chat" | "upload"
+  bucket: string; // namespace, e.g. "chat" | "upload" | "auth"
   limit: number; // max requests per window
   windowSec: number; // window length in seconds
+  // What to key the counter on. "workspace" (default) requires req.user and is
+  // for authenticated endpoints; "ip" is for pre-auth endpoints (login/signup)
+  // to blunt brute-force / credential stuffing.
+  keyOn?: 'workspace' | 'ip';
 }
 
-// Per-workspace fixed-window rate limiter backed by Redis (INCR + EXPIRE), so
-// the count is shared across API instances. Must run AFTER requireAuth (needs
-// req.user.workspaceId). Fails OPEN — if Redis is unavailable or unconfigured,
-// requests are allowed (a rate limiter must never be a single point of failure).
-export function rateLimit({ bucket, limit, windowSec }: RateLimitOptions) {
+// Fixed-window rate limiter backed by Redis (INCR + EXPIRE), so the count is
+// shared across API instances. Fails OPEN — if Redis is unavailable/unconfigured
+// or the key subject is missing, requests are allowed (a rate limiter must never
+// be a single point of failure). "workspace" keying must run AFTER requireAuth.
+export function rateLimit({ bucket, limit, windowSec, keyOn = 'workspace' }: RateLimitOptions) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const workspaceId = req.user?.workspaceId;
-    if (!workspaceId || !isRedisConfigured()) {
+    const subject = keyOn === 'ip' ? req.ip : req.user?.workspaceId;
+    if (!subject || !isRedisConfigured()) {
       next();
       return;
     }
 
-    const key = `ratelimit:${bucket}:${workspaceId}`;
+    const key = `ratelimit:${bucket}:${keyOn}:${subject}`;
     try {
       const redis = getRedis();
       const count = await redis.incr(key);

@@ -24,10 +24,10 @@ export async function invite(req: Request, res: Response, next: NextFunction): P
 
 export async function updateRole(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { workspaceId } = req.user!;
+    const { workspaceId, sub } = req.user!;
     const parsed = MemberIdParam.safeParse(req.params);
     if (!parsed.success) throw httpError('Invalid member id.', 400, 'VALIDATION_ERROR');
-    const member = await service.updateMemberRole(workspaceId, parsed.data.id, req.body.role);
+    const member = await service.updateMemberRole(workspaceId, sub, parsed.data.id, req.body.role);
     res.json({ member });
   } catch (err) {
     next(err);
