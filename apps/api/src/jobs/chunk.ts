@@ -13,7 +13,10 @@ export function chunkText(
   const size = opts.size ?? 500;
   const overlap = opts.overlap ?? 50;
 
-  const clean = text.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').trim();
+  const clean = text
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
   if (!clean) return [];
 
   const words = clean.split(/\s+/);

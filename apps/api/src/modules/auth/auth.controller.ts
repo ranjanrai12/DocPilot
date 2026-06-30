@@ -36,7 +36,9 @@ export async function refresh(req: Request, res: Response, next: NextFunction): 
   try {
     const token = req.cookies?.[REFRESH_COOKIE] as string | undefined;
     if (!token) {
-      res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Missing refresh token.' } });
+      res
+        .status(401)
+        .json({ error: { code: 'UNAUTHENTICATED', message: 'Missing refresh token.' } });
       return;
     }
     const result = await authService.refresh(token);

@@ -26,7 +26,10 @@ export function toDto(doc: Document): DocumentDto {
   };
 }
 
-export async function createDocument(workspaceId: string, input: NewDocument): Promise<DocumentDto> {
+export async function createDocument(
+  workspaceId: string,
+  input: NewDocument,
+): Promise<DocumentDto> {
   const doc = await withWorkspace(workspaceId, (tx) =>
     tx.document.create({
       data: {
@@ -68,7 +71,12 @@ export async function uploadDocument(
     await getIngestionQueue().add(
       'ingest',
       { documentId: document.id, workspaceId },
-      { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: true, removeOnFail: 100 },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+        removeOnComplete: true,
+        removeOnFail: 100,
+      },
     );
   } catch {
     // Enqueue failed — mark FAILED so it isn't stuck in PROCESSING forever.
@@ -78,7 +86,11 @@ export async function uploadDocument(
         data: { status: 'FAILED', error: 'Could not start ingestion.' },
       }),
     ).catch(() => {});
-    throw httpError('Could not start document ingestion. Please try again.', 503, 'SERVICE_UNAVAILABLE');
+    throw httpError(
+      'Could not start document ingestion. Please try again.',
+      503,
+      'SERVICE_UNAVAILABLE',
+    );
   }
 
   return document;

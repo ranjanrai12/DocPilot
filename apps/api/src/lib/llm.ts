@@ -190,7 +190,10 @@ class AnthropicChat implements ChatClient {
     return { text, tokensIn: res.usage.input_tokens, tokensOut: res.usage.output_tokens };
   }
 
-  async stream({ system, messages, maxTokens, signal }: ChatInput, onToken: (t: string) => void): Promise<ChatResult> {
+  async stream(
+    { system, messages, maxTokens, signal }: ChatInput,
+    onToken: (t: string) => void,
+  ): Promise<ChatResult> {
     const s = this.client.messages.stream(
       {
         model: env.CHAT_MODEL,
@@ -207,10 +210,20 @@ class AnthropicChat implements ChatClient {
   }
 
   async agentStream(
-    { system, messages, tools, maxTokens, maxIterations = DEFAULT_MAX_ITERATIONS, signal }: AgentStreamInput,
+    {
+      system,
+      messages,
+      tools,
+      maxTokens,
+      maxIterations = DEFAULT_MAX_ITERATIONS,
+      signal,
+    }: AgentStreamInput,
     handlers: AgentStreamHandlers,
   ): Promise<ChatResult> {
-    const convo: Anthropic.MessageParam[] = messages.map((m) => ({ role: m.role, content: m.content }));
+    const convo: Anthropic.MessageParam[] = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
     const toolDefs: Anthropic.Tool[] = tools.map((t) => ({
       name: t.name,
       description: t.description,
@@ -227,7 +240,13 @@ class AnthropicChat implements ChatClient {
     // the requested tools and feeds the results back for another pass.
     for (let i = 0; i < maxIterations; i++) {
       const s = this.client.messages.stream(
-        { model: env.CHAT_MODEL, max_tokens: maxTokens ?? 1024, system, messages: convo, tools: toolDefs },
+        {
+          model: env.CHAT_MODEL,
+          max_tokens: maxTokens ?? 1024,
+          system,
+          messages: convo,
+          tools: toolDefs,
+        },
         signal ? { signal } : undefined,
       );
       s.on('text', (delta) => handlers.onToken(delta));
@@ -237,7 +256,9 @@ class AnthropicChat implements ChatClient {
       handlers.onUsage?.({ tokensIn: msg.usage.input_tokens, tokensOut: msg.usage.output_tokens });
       finalText += msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
 
-      const toolUses = msg.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+      const toolUses = msg.content.filter(
+        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+      );
       if (msg.stop_reason !== 'tool_use' || toolUses.length === 0) {
         return { text: finalText, tokensIn, tokensOut };
       }
@@ -269,7 +290,10 @@ class AnthropicChat implements ChatClient {
     const finalMsg = await finalStream.finalMessage();
     tokensIn += finalMsg.usage.input_tokens;
     tokensOut += finalMsg.usage.output_tokens;
-    handlers.onUsage?.({ tokensIn: finalMsg.usage.input_tokens, tokensOut: finalMsg.usage.output_tokens });
+    handlers.onUsage?.({
+      tokensIn: finalMsg.usage.input_tokens,
+      tokensOut: finalMsg.usage.output_tokens,
+    });
     finalText += finalMsg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
 
     return { text: finalText, tokensIn, tokensOut };
@@ -309,7 +333,11 @@ class FakeChat implements ChatClient {
     let tokensIn = Math.ceil((input.system.length + question.length) / 4);
 
     if (has('search_documents')) {
-      await handlers.onToolUse({ id: 'fake_search_1', name: 'search_documents', input: { query: question } });
+      await handlers.onToolUse({
+        id: 'fake_search_1',
+        name: 'search_documents',
+        input: { query: question },
+      });
     }
     if (/\bemail\b/i.test(question) && has('email_summary')) {
       await handlers.onToolUse({

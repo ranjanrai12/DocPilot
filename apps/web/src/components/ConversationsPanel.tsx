@@ -26,7 +26,8 @@ export default function ConversationsPanel({
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       if (selectedId === id) onSelect(null);
     },
-    onError: (e) => setError(e instanceof ApiRequestError ? e.message : 'Failed to delete conversation.'),
+    onError: (e) =>
+      setError(e instanceof ApiRequestError ? e.message : 'Failed to delete conversation.'),
   });
 
   const conversations = conversationsQuery.data?.items ?? [];
@@ -38,7 +39,15 @@ export default function ConversationsPanel({
           onClick={() => onSelect(null)}
           className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 text-white text-sm font-medium px-3 py-2 hover:bg-slate-800 transition-colors"
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M12 5v14M5 12h14" />
           </svg>
           New chat
@@ -73,7 +82,15 @@ export default function ConversationsPanel({
               className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 px-2 transition disabled:opacity-50"
               title="Delete conversation"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
               </svg>
             </button>

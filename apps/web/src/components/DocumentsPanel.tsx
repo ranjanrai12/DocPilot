@@ -75,7 +75,15 @@ export default function DocumentsPanel({ className = '' }: { className?: string 
           disabled={uploadMutation.isPending}
           className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium px-3 py-1.5 hover:bg-indigo-700 disabled:opacity-60 transition-colors"
         >
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M12 5v14M5 12h14" />
           </svg>
           {uploadMutation.isPending ? 'Uploading' : 'Upload'}
@@ -94,14 +102,19 @@ export default function DocumentsPanel({ className = '' }: { className?: string 
         ) : documents.length === 0 ? (
           <div className="mt-6 rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center">
             <p className="text-sm font-medium text-slate-600">No documents yet</p>
-            <p className="mt-1 text-xs text-slate-400">Upload a PDF, DOCX, or TXT to start asking questions.</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Upload a PDF, DOCX, or TXT to start asking questions.
+            </p>
           </div>
         ) : (
           <ul className="space-y-1">
             {documents.map((doc) => {
               const status = statusMeta[doc.status];
               return (
-                <li key={doc.id} className="group rounded-xl px-2.5 py-2 hover:bg-slate-50 transition-colors">
+                <li
+                  key={doc.id}
+                  className="group rounded-xl px-2.5 py-2 hover:bg-slate-50 transition-colors"
+                >
                   <div className="flex items-center gap-2.5">
                     <span className="shrink-0 h-8 w-8 rounded-lg bg-slate-100 text-slate-500 text-[9px] font-semibold flex items-center justify-center">
                       {extOf(doc.filename)}
@@ -121,7 +134,15 @@ export default function DocumentsPanel({ className = '' }: { className?: string 
                       className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 transition disabled:opacity-50 shrink-0"
                       title="Delete document"
                     >
-                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
                       </svg>
                     </button>

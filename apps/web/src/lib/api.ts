@@ -4,11 +4,17 @@ import type { ApiError, ChatStreamEvent } from '@docpilot/shared';
 let _accessToken: string | null = null;
 export const tokenStore = {
   get: () => _accessToken,
-  set: (t: string | null) => { _accessToken = t; },
+  set: (t: string | null) => {
+    _accessToken = t;
+  },
 };
 
 export class ApiRequestError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -92,7 +98,10 @@ async function streamRequest(
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined }),
+    request<T>(path, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
   upload: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   stream: (

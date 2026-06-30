@@ -9,8 +9,20 @@ const BCRYPT_COST = 12;
 // whether or not the account is real (mitigates timing-based user enumeration).
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-placeholder-password', BCRYPT_COST);
 
-function toPublicUser(user: { id: string; workspaceId: string; email: string; role: string; createdAt: Date }) {
-  return { id: user.id, workspaceId: user.workspaceId, email: user.email, role: user.role, createdAt: user.createdAt };
+function toPublicUser(user: {
+  id: string;
+  workspaceId: string;
+  email: string;
+  role: string;
+  createdAt: Date;
+}) {
+  return {
+    id: user.id,
+    workspaceId: user.workspaceId,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt,
+  };
 }
 
 function makeTokens(user: { id: string; workspaceId: string; role: string }) {
@@ -28,7 +40,10 @@ export async function signup(body: SignupBody) {
   const user = await bypassRls(async (tx) => {
     const existing = await tx.user.findUnique({ where: { email: body.email } });
     if (existing) {
-      const err = new Error('Email already registered.') as Error & { status: number; code: string };
+      const err = new Error('Email already registered.') as Error & {
+        status: number;
+        code: string;
+      };
       err.status = 409;
       err.code = 'CONFLICT';
       throw err;
@@ -69,7 +84,11 @@ export async function refresh(refreshToken: string) {
     throw err;
   }
 
-  const accessToken = signAccessToken({ sub: user.id, workspaceId: user.workspaceId, role: user.role });
+  const accessToken = signAccessToken({
+    sub: user.id,
+    workspaceId: user.workspaceId,
+    role: user.role,
+  });
   return { accessToken };
 }
 

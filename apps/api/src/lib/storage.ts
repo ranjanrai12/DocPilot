@@ -73,7 +73,12 @@ class S3Storage implements StorageDriver {
   async put(key: string, body: Buffer, contentType: string): Promise<void> {
     const { mod, s3 } = await this.client();
     await s3.send(
-      new mod.PutObjectCommand({ Bucket: env.STORAGE_BUCKET, Key: key, Body: body, ContentType: contentType }),
+      new mod.PutObjectCommand({
+        Bucket: env.STORAGE_BUCKET,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
     );
   }
 

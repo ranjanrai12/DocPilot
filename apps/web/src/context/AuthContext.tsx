@@ -20,7 +20,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // On mount, try to restore the session using the refresh cookie.
   useEffect(() => {
-    api.post<RefreshResponse>('/api/auth/refresh')
+    api
+      .post<RefreshResponse>('/api/auth/refresh')
       .then(({ accessToken }) => {
         tokenStore.set(accessToken);
         return api.get<{ user: UserPublic }>('/api/auth/me');
@@ -30,7 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function login(email: string, password: string) {
-    const { user, accessToken } = await api.post<AuthResponse>('/api/auth/login', { email, password });
+    const { user, accessToken } = await api.post<AuthResponse>('/api/auth/login', {
+      email,
+      password,
+    });
     tokenStore.set(accessToken);
     setState({ user, isLoading: false });
   }

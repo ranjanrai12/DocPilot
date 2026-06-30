@@ -8,7 +8,12 @@ interface AppError extends Error {
 }
 
 // Must be registered last (4-arg signature tells Express it's an error handler).
-export function errorHandler(err: AppError, req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(
+  err: AppError,
+  req: Request,
+  res: Response,
+  _next: NextFunction,
+): void {
   // Known operational errors (httpError): expected, log at warn with context.
   if (err.status && err.code) {
     logger.warn(
